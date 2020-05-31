@@ -1,0 +1,13 @@
+.Rproj.user
+.Rhistory
+.RData
+.Ruserdata
+.DS_Store
+Untitled*
+bak/
+Report.nb.html
+Report.html
+Report/
+Report_cache/
+Report_files/
+skeleton.bib
