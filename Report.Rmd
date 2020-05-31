@@ -17,6 +17,7 @@ link-citations: yes
 
 ```{r setup, include=FALSE}
 library(tufte)
+library(tidyverse)
 # invalidate cache when the tufte version changes
 knitr::opts_chunk$set(tidy = FALSE, cache.extra = packageVersion('tufte'))
 options(htmltools.dir.version = FALSE)
@@ -39,6 +40,57 @@ known as diabetes, is a group of metabolic disorders characterized by
 a high blood sugar level over a prolonged period of time. It afflicts 
 nearly 9% of world population (463 million) and causes 4 million 
 deaths every year.
+
+The ability to forecast is central to many medical situations. Standard statistical 
+techniques such as discriminate
+analysis, regression analysis, and factor analysis have been used to
+provide this ability. Even though sophesticated neural network models have been
+used
+to predict the onset of diabetes using the same data set, we beleive
+there is merit in using workhorse statistical models since sample size is
+fairly large (768 observations) and underlying functional correlations
+among variables can be evaluated and minimized. 
+
+# Related Work
+
+Smith et. al.^[JW Smith, JE Everhart, WC Dicksont,
+WC Knowler, RS Johannes. 1988. Using the ADAP Learning Algorithm to Forecast
+the Onset of Diabetes Mellitus] have used the ADAP Learning Algorithm to forecast
+the onset of diabetes mellitus using the same data. 
+They describe ADAP as "an adaptive learning routine that generates and executes
+digital analogs of perceptron-like devices". 
+
+> "ADAP was developed by two of the authors [Smith, Dickson] in 1961. We chose to examine the ADAP algorithm and test its use in forecasting the onset of non-insulin-dependent diabetes mellitus (DM) within a five-year period. The data used in this study were from the Pima Indian population near Phoenix, Arizona. Once the algorithm had been trained using 576 cases, ADAP was used to forecast whether another 192 test cases would develop diabetes within five years. Forcing ADAP to conclude on all test cases produced a sensitivity and specificity of 76 percent."
+
+
+In diagnostic medicine, testing the hypothesis that the ROC Curve area or partial 
+area has a specific value is a common practice^[Statistical Methods in 
+Diagnostic Medicine, Second Edition, Ch.4,
+Author(s): Xiao‐Hua Zhou Nancy A. Obuchowski Donna K. McClish]. 
+
+Although many sophisticated models have been developed for discriminant analysis, 
+recent empirical comparisons indicate that standard methods such as 
+logistic regression work very well^[C B Begg. Statistical Methods in Medical Diagnosis].
+
+Our null hypothesis is that binary choice models like logit and probit
+will produce as good a result as ADAP.
+
+*H0: Crossover point for sensitivity and specificity for binary choice models is greater than 0.76.*
+
+# Data
+
+Data comes from [Kaggle](https://www.kaggle.com/uciml/pima-indians-diabetes-database) via UCI Machine Learning Repository.
+
+```{r}
+tb <- read.csv(url(str_c(
+  "https://raw.githubusercontent.com/girishji/",
+  "Pima/master/data/diabetes.csv")))
+knitr::kable(
+  tb[1:6, 1:6], caption = 'A subset of data.'
+)
+```
+
+## Study Population
 
 The population for this study was the Pima Indian population near
 Phoenix, Arizona. That population has been under continuous
@@ -66,52 +118,81 @@ investigators, this data set provided a well validated data resource
 in which to explore prediction of the date of onset of diabetes in a
 longitudinal manner.
 
-The ability to forecast is central to many medical situations. Standard statistical 
-techniques such as discriminate
-analysis, regression analysis, and factor analysis have been used to
-provide this ability. Even though sophesticated neural network models have been
-used
-to predict the onset of diabetes using the same data set, we beleive
-there is merit in using standard statistical models since sample size is
-fairly large (768 observations) and underlying functional correlations
-among variables can be evaluated. 
+## Variables
 
-# Related Work
+The subjects of the study are Pima Indian women over 21 years of age. 
+The following explanatory variables are found to be the risk factors 
+for diabetes among women.
 
-Smith et. al.^[JW Smith, JE Everhart, WC Dicksont,
-WC Knowler, RS Johannes,. 1988. Using the ADAP Learning Algorithm to Forecast
-the Onset of Diabetes Mellitus] have used the ADAP Learning Algorithm to forecast
-the onset of diabetes mellitus using the same data. 
-They describe ADAP as "an adaptive learning routine that generates and executes
-digital analogs of perceptron-like devices". 
+1. `Pregnancies`: Number of times pregnant
+2. `Glucose`: Plasma Glucose Concentration at 2 Hours in an Oral
+Glucose Tolerance Test (GTIT)
+3. `BloodPressure`: Diastolic Blood Pressure (mm Hg)
+4. `SkinThickness`: Triceps Skin Fold Thickness (mm)
+5. `Insulin`: 2-Hour Serum Insulin Uh/ml)
+6. `BMI`: Body Mss Index (Weight in kg / (Height in in))
+7. `DPF`^[Diabetes Pedigree Function was developed 
+by Smith et. al.^*^ to provide a measure of the expected 
+genetic influence of affected and unaffected relatives on the 
+subject's eventual diabetes
+risk. It  uses information from parents, grandparents,
+full and half siblings, full and half aunts and uncles, and first
+cousins.]: Diabetes Pedigree Function 
+`r margin_note("^*^JW Smith, JE Everhart, WC Dicksont, WC Knowler, RS Johannes. 1988. Using the ADAP Learning Algorithm to Forecast the Onset of Diabetes Mellitus")`
+8. `Age`: Age (years)
 
-> "ADAP was developed by two of the authors [Smith, Dickson] in 1961. We chose to examine the ADAP algorithm and test its use in forecasting the onset of non-insulin-dependent diabetes mellitus (DM) within a five-year period. The data used in this study were from the Pima Indian population near Phoenix, Arizona. Once the algorithm had been trained using 576 cases, ADAP was used to forecast whether another 192 test cases would develop diabetes within five years. Forcing ADAP to conclude on all test cases produced a sensitivity and specificity of 76 percent."
+The binary dependent variable (`Outcome`) describes 
+the onset of non-insulin-dependent diabetes
+mellitus (DM) within a five-year period. This variable is 1 if diagnosis 
+is positive within five years, and 0 otherwise.
+
+## Observations from Data
 
 
-In diagnostic medicine, testing the hypothesis that the ROC Curve area or partial 
-area has a specific value is a common practice^[Statistical Methods in 
-Diagnostic Medicine, Second Edition, Ch.4,
-Author(s): Xiao‐Hua Zhou Nancy A. Obuchowski Donna K. McClish]. 
-
-Our null hypothesis is that binary choice models will produce as 
-good a result as ADAP.
-
-*H0: Crossover point for sensitivity and specificity for binary choice models is greater than 0.76.*
-
-# Data
-
-Data comes from [Kaggle via UCI Machine Learning Repository](https://raw.githubusercontent.com/jbrownlee/Datasets/master/pima-indians-diabetes.data.csv).
-
-which contains data on female patients at least 21 years old of Pima Indian heritage (update: download from here).
 
 
 # Method
+
+Hello Matija
+You should use a Zero-inflated regression model for both the Poisson regression and the Negative binomial regression. These models have two components: i) For explaining the excess of zeros and ii) for explaining the count data.
+In the Stata software the commands are "zip" and "zinb".
+You should do a diagnostic test in order to select the adequate regression model.
+Good luck.
+Andrés.
+
+-
+
+You are focusing on zeros as part of the distributions of several predictors, but the central questions for modelling include (a) what kind of response variable you have and (b) what kind of relationship you expect between the response and the predictors or explanatory variables.
+
+Zeros in the predictors themselves rule out little except straight logarithmic transformation.
+
+From your description, the starting point is that price is the response and prices are necessarily positive. That suggests immediately a regression model with log link and quite possibly Poisson regression. (The fact that price is not a count is secondary here. See for example http://blog.stata.com/tag/poisson-regression/ and its literature for explanation.)
+
+From that, how to represent your predictors depends on their relationship with the response as much as, or more than, their marginal distributions. Your post supplies no information to guide advice, but I'd start with including them as they come and then consider if you need other representations, e.g. as roots, squares, set of indicator variables.
+
+
+
+
+
+To begin, several predictors of the variable with missing values are identified using a correlation matrix. The best predictors are selected and used as independent variables in a regression equation. 
+
+
+
+
+
+Although many sophisticated models have been developed for discriminant analysis, recent empirical comparisons indicate that standard methods such as linear discrimination and logistic regression work very well. More research is needed to overcome practical difficulties that are not accommodated in the conventional assumptions. Research on the assessment of diagnostic tests has been oriented more toward selection biases and practical problems. 
 
 # Model
 
 # Results
 
 # Findings
+
+
+
+
+
+
 
 
 
