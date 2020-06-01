@@ -84,11 +84,10 @@ will produce as good a result as ADAP.
 Data comes from [Kaggle](https://www.kaggle.com/uciml/pima-indians-diabetes-database) via UCI Machine Learning Repository.
 
 ```{r}
-diabetes <- read.csv(url(str_c(
+diabetes <- as_tibble(read.csv(url(str_c(
   "https://raw.githubusercontent.com/girishji/",
-  "Pima/master/data/diabetes.csv")))
-kable(diabetes[1:6, 1:6], 
-      caption = 'A subset of data.')
+  "Pima/master/data/diabetes.csv"))))
+diabetes[1:6, ] %>% kable(caption = 'A subset of data.')
 ```
 
 ## Study Population
@@ -150,17 +149,6 @@ is positive within five years, and 0 otherwise.
 
 Preliminary examination of data reveals following:
 
-```{r fig.cap = "Box plot of `Insulin` and `SkinThickness` showing spurious outliers.", cache=TRUE, fig.margin = TRUE, echo = F}
-diabetes %>% 
-  select_at(vars(Insulin, SkinThickness)) %>% 
-  pivot_longer(everything(), names_to = 'Regressor', 
-               values_to = 'Value') %>% 
-  ggplot(aes(x = Regressor, y = Value, fill = Regressor)) +
-  geom_boxplot() +
-  theme(legend.position="none", axis.title.x = element_blank(),
-        axis.text.x = element_blank())
-```
-
 - There are many spurious 0 values in data, especially in `Insulin` and
 `SkinThickness`. These values skew the mean and cause excessive outliers. 
 We assume these to be errors in data, and suitable remedies
@@ -175,19 +163,37 @@ are going to be similar.
 
 - From the density plot (after temporarily filtering out spurious zero 
 values) we can observe that not all distributions are normal. Data is skewed
-towards younger subjects. `Pregnancies` are also skewed towards fewer children.
+towards younger subjects. `Pregnancies` are also skewed towards fewer pregnancies.
 `BMI`, `Insulin`, and `SkinThickness` have long tails on the right side.
 
-```{r}
+
+
+```{r echo=F}
+diabetes %>%
+  summarise_each(~ sum(.x == 0)) %>%
+  pivot_longer(everything(), names_to = ' ',
+               values_to = 'Count of Zero Values') %>%
+  kable(caption = 'Zeros in some variables are errors in data.')
+```
+
+$\\$
+
+```{r fig.cap = "Box plot showing spurious outliers in `Insulin` and `SkinThickness`, and skewed mean.", cache=TRUE, echo = F}
 diabetes %>% 
-  summarise_each(~ sum(.x == 0)) %>% 
-  pivot_longer(everything(), names_to = ' ', 
-               values_to = 'Count of Zero Values') %>% 
-  kable()
+  select(-Outcome) %>% 
+  pivot_longer(everything(), names_to = 'Variable', 
+               values_to = 'Value') %>% 
+  ggplot(aes(x = Variable, y = Value, fill = Variable)) +
+  geom_jitter(size=0.1, alpha=0.2) +
+  stat_summary(fun=mean, geom="point", shape=20, size=4, color="red", fill="red") +
+  geom_boxplot(alpha = 0.3) +
+  theme(legend.position="none") +
+  xlab("") +
+  ylab('')
 ```
 
 
-```{r fig.cap = "Density plot of regressors.", cache=TRUE}
+```{r fig.cap = "Density plot of regressors (without spurious zero values).", cache=TRUE, echo=F, fig.height=3}
 diabetes %>% 
   select(-Outcome) %>% 
   pivot_longer(everything(), names_to='Regressor', 
@@ -196,9 +202,11 @@ diabetes %>%
   filter(Regressor == 'Pregnancies' | Value != 0) %>% 
   ggplot(aes(x = Value, group = Regressor, 
              fill = Regressor)) +
-  geom_density() +
-  facet_wrap(~Regressor, scales = "free") +
-  theme(legend.position="none")
+  geom_density(alpha = 0.3) +
+  facet_wrap(~Regressor, scales = "free", nrow = 2) +
+  theme(legend.position="none") +
+  xlab('') +
+  ylab('')
 ```
 
 
@@ -221,7 +229,9 @@ Examining the scatter plots and correlations among the variables reveals the fol
 
 - Presence of spurious zero values in `Insulin` could be masking its correlation with `Glucose`.
 
-```{r fig.cap = "Correlogram of regressors.", cache=TRUE}
+- None of the explanatory variables are strongly correlated with the response variable.
+
+```{r fig.cap = "Correlation matrix of regressors.", cache=TRUE, echo=FALSE}
 diabetes %>% 
   ggpairs(., lower = list(continuous = 
                             wrap("points", alpha = 0.3, 
