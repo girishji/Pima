@@ -20,6 +20,7 @@ library(tufte)
 library(tidyverse)
 library(knitr)
 library(GGally)
+library(kableExtra)
 # invalidate cache when the tufte version changes
 knitr::opts_chunk$set(tidy = FALSE, cache.extra = packageVersion('tufte'))
 options(htmltools.dir.version = FALSE)
@@ -83,11 +84,11 @@ will produce as good a result as ADAP.
 
 Data comes from [Kaggle](https://www.kaggle.com/uciml/pima-indians-diabetes-database) via UCI Machine Learning Repository.
 
-```{r}
-diabetes <- as_tibble(read.csv(url(str_c(
-  "https://raw.githubusercontent.com/girishji/",
-  "Pima/master/data/diabetes.csv"))))
-diabetes[1:6, ] %>% kable(caption = 'A subset of data.')
+`r margin_note('A subset of data.')`
+```{r echo=T}
+diabetes <- read.csv(
+  "https://raw.githubusercontent.com/girishji/Pima/master/data/diabetes.csv")
+diabetes[1:6, ] %>% kable()
 ```
 
 ## Study Population
@@ -125,11 +126,11 @@ for diabetes among women.
 
 1. `Pregnancies`: Number of times pregnant
 2. `Glucose`: Plasma Glucose Concentration at 2 Hours in an Oral
-Glucose Tolerance Test (GTIT)
+Glucose Tolerance Test (GTIT) (in mg/dL)
 3. `BloodPressure`: Diastolic Blood Pressure (mm Hg)
 4. `SkinThickness`: Triceps Skin Fold Thickness (mm)
-5. `Insulin`: 2-Hour Serum Insulin Uh/ml)
-6. `BMI`: Body Mss Index (Weight in kg / (Height in in))
+5. `Insulin`: 2-Hour Serum Insulin (Uh/ml)
+6. `BMI`: Body Mass Index (Weight in kg / (Height in in))
 7. `DPF`^[Diabetes Pedigree Function was developed 
 by Smith et. al.* to provide a measure of the expected 
 genetic influence of affected and unaffected relatives on the 
@@ -171,14 +172,15 @@ towards younger subjects. `Pregnancies` are also skewed towards fewer pregnancie
 ```{r echo=F}
 diabetes %>%
   summarise_each(~ sum(.x == 0)) %>%
-  pivot_longer(everything(), names_to = ' ',
+  pivot_longer(everything(), names_to = 'Variable',
                values_to = 'Count of Zero Values') %>%
-  kable(caption = 'Zeros in some variables are errors in data.')
+  kable(caption = 'Zero values in some variables indicate errors in data.') %>% 
+  kable_styling(full_width = F)
 ```
 
 $\\$
 
-```{r fig.cap = "Box plot showing spurious outliers in `Insulin` and `SkinThickness`, and skewed mean.", cache=TRUE, echo = F}
+```{r fig.cap = "Box plot showing spurious outliers in `Insulin` and `SkinThickness`, and skewed mean (red dot).", cache=TRUE, echo = F}
 diabetes %>% 
   select(-Outcome) %>% 
   pivot_longer(everything(), names_to = 'Variable', 
@@ -214,10 +216,11 @@ diabetes %>%
 
 ```{r fig.cap = "Correlation among regressors.", cache=TRUE, fig.margin = TRUE, echo = F}
 diabetes %>% 
+  rename(Pregnan. = 1, BloodPr. = 3, SkinThick. = 4) %>% 
   ggcorr(method = c("everything", "pearson"))
 ```
 
-Examining the scatter plots and correlations among the variables reveals the following:
+Scatter plots and correlation matrix reveal the following:
 
 - Among all the regressors, `Glucose` concentration has the highest correlation (.467) with onset of diabetes.
 
@@ -240,53 +243,376 @@ diabetes %>%
 
 # Method
 
-Hello Matija
-You should use a Zero-inflated regression model for both the Poisson regression and the Negative binomial regression. These models have two components: i) For explaining the excess of zeros and ii) for explaining the count data.
-In the Stata software the commands are "zip" and "zinb".
-You should do a diagnostic test in order to select the adequate regression model.
-Good luck.
-Andrés.
-
--
-
-You are focusing on zeros as part of the distributions of several predictors, but the central questions for modelling include (a) what kind of response variable you have and (b) what kind of relationship you expect between the response and the predictors or explanatory variables.
-
-Zeros in the predictors themselves rule out little except straight logarithmic transformation.
-
-From your description, the starting point is that price is the response and prices are necessarily positive. That suggests immediately a regression model with log link and quite possibly Poisson regression. (The fact that price is not a count is secondary here. See for example http://blog.stata.com/tag/poisson-regression/ and its literature for explanation.)
-
-From that, how to represent your predictors depends on their relationship with the response as much as, or more than, their marginal distributions. Your post supplies no information to guide advice, but I'd start with including them as they come and then consider if you need other representations, e.g. as roots, squares, set of indicator variables.
-
-
-
-
-
-To begin, several predictors of the variable with missing values are identified using a correlation matrix. The best predictors are selected and used as independent variables in a regression equation. 
-
-
-
-
-
-Although many sophisticated models have been developed for discriminant analysis, recent empirical comparisons indicate that standard methods such as linear discrimination and logistic regression work very well. More research is needed to overcome practical difficulties that are not accommodated in the conventional assumptions. Research on the assessment of diagnostic tests has been oriented more toward selection biases and practical problems. 
 
 # Model
+
+```{r include=F}
+library(arm)
+```
+
+Logistic regression is the standard way to model binary outcomes. We model the probability that $y = 1$,
+$$P(y_i = 1) = logit^{−1}(X_iβ)$$
+under the assumption that the outcomes $y_i$ are independent given these probabilities.
+We refer to $Xβ$ as the linear predictor. The function $logit^{-1}(x) = \frac{e^x}{1+e^x}$ transforms 
+the continuous values to the range (0, 1), which is necessary since probabilities must be between 0 and 1.
+
+In building our regression model we include all input variables that are expected to play a 
+significant role in predicting the outcome, and also include their interactions if they have
+large effects. We include statistically non-significant variables as long as they have
+expected sign, and exclude them if they do not have expected sign.
+
+We start with a simple model and then build in additional complexity, taking care to check 
+for problems along the way. We follow the strategy as the one used by
+Gelman and Hill^[p.69, Andrew Gelman and 
+Jennifer Hill, Data Analysis Using Regression and Multilevel/Hierarchical Models, 2006.].
+
+*Logistic regression with just one predictor*
+
+Glucose level been known to be a strong predictor of onset of diabetes, and the correlation
+matrix reflects this relationship. We shall first fit the model just using `Glucose` and then
+put in other variables.
+
+
+```{r}
+fit.1 <- glm(Outcome ~ Glucose, diabetes,
+             family = binomial(link = "logit")) 
+display(fit.1, digits = 4)
+```
+
+The coefficient for `Glucose` is .0379, which seems low, but it is measured in mg/dL and mean 
+value is 120 mg/dL. It is possible to rescale values (say, divide by 10) to increase this coefficient,
+but we chose to retain 
+the original scale.
+
+*Graphing the fitted model*
+
+```{marginfigure}
+Graphical expression of the fitted logistic regression, $$P(diabetes) = logit^{−1}(-5.3501 + 0.0379 · Glucose)$$. The predictor `Glucose`: blood sugar levels in mg/dL.
+```
+
+```{r warning=F, message=F}
+diabetes %>% mutate(Predicted = fitted(fit.1)) %>% filter(Glucose != 0) %>% 
+  ggplot(aes(Glucose, Outcome)) + geom_point() +
+  stat_smooth(aes(Glucose, Predicted), se = F) +
+  ylab('Probability (diabetes)')
+```
+
+```{r echo=F, message=F, fig.margin=T, fig.cap="The solid line shows the best-fit logistic regression, and the light lines show uncertainty in the fit."}
+sim.1 <- sim(fit.1)
+plotx <- function(.data) {
+  plt <- .data %>% mutate(Predicted = fitted(fit.1)) %>% filter(Glucose != 0)
+  for (j in 1:10) {
+    plt <- plt %>% mutate(!!sym(str_c('s_', j)) := 
+                            invlogit(sim.1@coef[j,1] + sim.1@coef[j,2] * Glucose))
+  }
+  plt <- plt %>% ggplot(aes(Glucose, Outcome)) + geom_point() 
+  for (j in 1:10) {
+    plt <- plt + stat_smooth(aes(Glucose, !!sym(str_c('s_', j))), se = F, color = "gray")
+  }
+  plt <- plt + 
+    stat_smooth(aes(Glucose, Predicted), se = F) +
+    labs(y = "Probability (diabetes)", title = "")
+  return(plt)
+}
+plotx(diabetes) 
+```
+
+*Interpreting the logistic regression coefficients*
+
+Our model is $$P(diabetes) = logit^{−1}(-5.3501 + 0.0379 · Glucose)$$
+
+- The constant term can be interpreted when `Glucose` = 0, in which case the probability of 
+diagnosing diabetes is $logit^{−1}(-5.3501) = $ `r round(invlogit(-5.3501), digits=4)` 
+(close to 0%). However `Glucose` level at 0 does not make sense, so we try not
+to interet this.
+
+- We can evaluate the predictive difference with respect to `Glucose` by computing the 
+derivative at the average value of `Glucose` in the dataset, which is 120.9 mg/dL. The 
+value of the linear predictor here is -5.3501 + 0.0379 · 120.9 = -0.76799, and so 
+the slope of the curve at this point is $0.0379e^{-0.76799}/(1+e^{-0.76799})^2$ = .0082. 
+Thus, adding 1 mg/dL to `Glucose` corresponds to a positive difference in the probability of
+diagnosing diabetes by about 0.82%.
+
+- We can also look at the statistical significance of the coefficient for `Glucose`. The 
+slope is estimated well, with a standard error of only 0.0033, which is tiny compared 
+to the coefficient estimate of 0.0379. The approximate 95% (2 standard errors) interval 
+is [0.0313, 0.0445], 
+which is clearly statistically significantly different from zero. 
+
+*Adding a second input variable*
+
+We extend the model by adding BMI. We expect the coefficient to be positive.
+
+```{r}
+fit.2 <- glm(Outcome ~ Glucose + BMI, diabetes,
+             family = binomial(link="logit"))
+display(fit.2, digits = 4)
+```
+
+Comparing two individuals, the one with 1 mg/dL higher blood glucose will encounter
+0.0352 logit probability of diabetes diagnosis. Similarly, an increasea of 1 kg/in in
+BMI corresponds to an increase of 0.0763 logit prbability of diagnosis. Both 
+coefficients are statistically significant, each being more than 2 standard errors 
+away from zero. And both their signs make sense: glucose level and BMI are known
+risk factors for diabetes.
+
+For a quick interpretation, we use the “divide by 4 rule”^[p.82, Andrew Gelman and 
+Jennifer Hill, Data Analysis Using Regression and Multilevel/Hierarchical Models, 2006.]
+on the coefficients and observe that 1 mg/dL increase in glucose increases probability
+of diabetes diagnosis by 0.88%, and 1 kg/in increase in BMI also increases probability
+of diabetes diagnosis by 1.9%.
+
+Comparing these two coefficients, we may conclude that `BMI` is more a important factor, 
+but this is incorrect. The standard deviation of `BMI` is 7.9 and for `Glucose` it is 31.9.
+The logistic regression coefficients corresponding to 1-standard-deviation differences 
+are 0.0352·31.9 for `Glucose` and  0.0763·7.9 for `BMI` respectively. Again, applying
+the "divide by 4 rule", 1-standard deviation difference of `Glucose` yields a 28%
+increase in probability, while in `BMI` it is only 15%.
+
+*Comparing the coefficient estimates when adding a predictor*
+
+The coefficient for `Glucose` changes from 0.379 in the original model to 0.352.
+This is because people who have high `Glucose` are likely to have high `BMI`.
+The two factors have a small positive correlation (0.221), as indicated
+in the correlation matrix from before.
+
+*Adding additional input variables*
+
+We check if `Pregnancies` is a significant factor.
+
+```{r}
+fit.3 <- glm(Outcome ~ Glucose + BMI + Pregnancies, diabetes,
+             family = binomial(link="logit"))
+display(fit.3, digits = 4)
+```
+
+Number of pregnancies has small standard error and is statistically significant from 0 
+at 95% interval (0.0835, 0.1907). It is not obvious why high number of 
+pregnancies is a risk factor.
+
+Now we add DPF (hereditory factor). Although diabetes mellitus is not
+genetic per se, DNA may influence the risk of developing it. This type of
+diabetes tends to run in families.
+
+```{r}
+fit.4 <- glm(Outcome ~ Glucose + BMI + Pregnancies + DPF, 
+             diabetes, family = binomial(link="logit"))
+display(fit.4, digits = 4)
+```
+
+DPF has a positive coefficient as expected, but has substantial standard error.
+At 95% interval of (0.3179, 1.4847) it is still quite statistically 
+significant from 0.
+
+`Age` is not known to be a risk factor for this type of diabetes. We shall
+include `Age` and check our assumptions.
+
+```{r}
+fit.5 <- glm(Outcome ~ Glucose + BMI + Pregnancies + 
+               DPF + Age, 
+             diabetes, family = binomial(link="logit"))
+display(fit.5, digits = 4)
+```
+
+`Age` is not statistically significant, since it has a large 
+standard error. However, it has the correct sign in the coefficient.
+This input may not influence the predictive power of the model
+very much but will not hurt either. So we decided to keep it.
+
+Now, we add `BloodPressure` and check if it is significant.
+
+```{r}
+fit.5 <- glm(Outcome ~ Glucose + BMI + Pregnancies + 
+               DPF + Age + BloodPressure, 
+             diabetes, family = binomial(link="logit"))
+display(fit.5, digits = 4)
+```
+
+`BloodPressure` is only marginally statistically significant from 0.
+The standard error is large, and consequently, its 95% interval is
+(-0.0237, -0.0033). However, it has -ve coefficient. It is not
+clear is lower blood pressure favors high probability of 
+diagnosing diabetes. It is known that diabetes damages arteries 
+and makes them targets for hardening, called atherosclerosis. This
+can cause high blood pressure. We would expect a +ve sign
+for the coefficient. This is a dubious input, and we will
+exclude it from the model.
+
+Finally, we will check for the remaining inputs: `SkinThickness` 
+and `Insulin`. Unfortunately both of them have high occurance of
+errors (zeros) in the column. 
+
+```{r}
+fit.6 <- glm(Outcome ~ Glucose + BMI + Pregnancies + 
+               DPF + Age + SkinThickness + Insulin,
+             diabetes, family = binomial(link="logit"))
+display(fit.6, digits = 4)
+```
+
+Both `SkinThickness` and `Insulin` suffer from large standard error
+and are not statistically significant from 0. 
+
+`SkinThickness` measures subcutaneal fat, and we would
+expect the sign of the coefficient to be positive. Given the -ve
+sign of the coefficient, large standard error, and occurance 
+of zeros in the data, we exclude this variable from the model.
+
+We also exclude `Insulin` because it has large standard error
+and large number of observation errors.
+
+
+*Check for interactions*
+
+`Age` and number of `Pregnancies` seems to have a natural 
+correlation, as
+indicated by the correlation matrix. `Age` by itself is not 
+statistically significant from 0 (at 95%). The interaction
+`Age:Pregnancies`
+is a candidate for inclusion in the model. 
+
+A quick fit analysis of all possible two-factor 
+interactions^[See Appendix B.]
+reveals that interaction between `Glucose` and `DPF` is
+statistically significant. 
+
+Our model so far:
+
+::: {.fullwidth}
+```{r}
+fit.8 <- glm(Outcome ~ Glucose + BMI + Pregnancies + 
+               DPF + Age + Pregnancies:Age + DPF:Glucose,
+             diabetes, family = binomial(link="logit"))
+display(fit.8, digits = 4)
+```
+:::
+
+
+*Interpretation of interactions*
+
+`Pregnancies:Age` has a coefficient of -0.0087, and it is 
+only mildly statistically
+significant from zero. It's 95% interval is (-0.0143, -0.0031). The
+sign of the coefficient is negative while signs of coefficents of
+`Age` and `Pregnanacies` are both positive. This can be interpreted two
+ways. For every additional pregnancy, the value of -0.0087 is 
+subtracted from the coefficient of `Age`. Subtracting -0.0087 from
+0.0455 (coefficient of `Age` alone) results in 19% reduction in
+the effect produced by `Age`. As subjects have more pregnancies, effect
+of age on diagnosis of diabetes decreases. Similarly, every
+1 year of additional age also decreases the effec to pregnancy
+on diagnosis of diabetes.
+
+`Glucose:DPF` is mildly statistically significant with a coefficient
+of -0.0234. Its 95%
+interval is (-0.007, -0.0398). `DPF` is a measure of hereditory
+factors contributing to diagnosis of diabetes. It is a ratio with
+values in the range (0, 1). One way to interpret this is that, if
+blood glucose increases in an individual by 10 mg/dL, then
+effect of hereditory factors as represented by `DPF` decreases
+by 0.234 (0.0234*10). Given that `DPF` has a coefficient of 3.947,
+the level of reduction is about 6%.
+
+
+
+
+
+```{r}
+-0.0087   + 2* 0.0028
+-0.0087   -2*0.0028
+-0.0087/ 0.0455
+
+-0.0234 +2*  0.0082
+-0.0234  -2* 0.0082
+diabetes$DPF
+-0.234/ 3.947
+```
+
+
+_Evaluating, checking, and comparing fitted logistic regressions_
+
+
+`SkinThickness`, Insulin
+
+BloodPressure + 
+    SkinThickness + Insulin
+
+
+```{r}
+0.1371-2*0.0268
+0.9013 -2*0.2917
+-0.0135-2*0.0051
+-0.0135+2*0.0051
+```
+
+
+
+
+We add the remaining variables one by one and check for statistical significance.
+
+Pregnancies + Glucose + BloodPressure + 
+    SkinThickness + Insulin + BMI + DPF + Age,
+    
+    
+
+
+
+
+```{r}
+
+#display(fit.4)
+#tidy(fit.4)
+#glance(fit.4)
+```
+
+
+
+
 
 # Results
 
 # Findings
 
+# Appendix A
+
+# Appendix B
+
+
+```{r}
+# fit.7 <- glm(Outcome ~ Glucose + BMI + Pregnancies + 
+#                DPF + Age,
+#              diabetes, family = binomial(link="logit"))
+# add1(fit.7, ~ .^2, test = "Chisq")
+# 
+# lrtest()
+```
 
 
 
+URL embedded in Rmd
+
+
+see if marginal effect makes sense, at means
+predicted probability, at means
+
+betas of (mean - val) vs val
+
+best fit, best practices, even though predictability is independednt.
+
+you can see what % are correctly predicted by substituting values
 
 
 
+So what’s the bottom line? In general, it might be best to use AIC and BIC together in model selection. For example, in selecting the number of latent classes in a model, if BIC points to a three-class model and AIC points to a five-class model, it makes sense to select from models with 3, 4 and 5 latent classes. AIC is better in situations when a false negative finding would be considered more misleading than a false positive, and BIC is better in situations where a false positive is as misleading as, or more misleading than, a false negative.
+https://www.methodology.psu.edu/resources/AIC-vs-BIC/
 
 
+The most important metrics are the Adjusted R-square, RMSE, AIC and the BIC. 
+for linear 
+Note that, these regression metrics are all internal measures, that is they have been computed on the same data that was used to build the regression model. They tell you how well the model fits to the data in hand, called training data set.
 
+In general, we do not really care how well the method works on the training data. Rather, we are interested in the accuracy of the predictions that we obtain when we apply our method to previously unseen test data.
 
-
-
+https://stackoverflow.com/questions/48877475/how-can-i-add-stars-to-broom-packages-tidy-function-output
 
 
 

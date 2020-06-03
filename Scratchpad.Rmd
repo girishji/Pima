@@ -1,0 +1,483 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+```{r}
+library('tidyverse')
+library('broom')
+diabetes <- read.csv("https://raw.githubusercontent.com/girishji/Pima/master/data/diabetes.csv")
+diabetes <- as_tibble(d)
+diabetes
+```
+
+But in practical data analysis it is usually easiest to start with a simple model and then build in additional complexity, taking care to check for problems along the way. 
+There are typically many reasonable ways in which a model can be constructed. Models may differ depending on the inferential goals or the way the data were collected. Key choices include how the input variables should be combined in cre- ating predictors, and which predictors should be included in the model. In classical regression, these are huge issues, because if you include too many predictors in a model, the parameter estimates become so variable as to be useless. 
+This section focuses on the problem of building models for prediction.
+
+General principles
+Our general principles for building regression models for prediction are as follows:
+1. Include all input variables that, for substantive reasons, might be expected to be important in predicting the outcome.
+2. It is not always necessary to include these inputs as separate predictors—for example, sometimes several inputs can be averaged or summed to create a “total score” that can be used as a single predictor in the model.
+3. For inputs that have large effects, consider including their interactions as well.
+4.
+We suggest the following strategy for decisions regarding whether to exclude a variable from a prediction model based on expected sign and statistical signifi- cance (typically measured at the 5% level; that is, a coefficient is “statistically significant” if its estimate is more than 2 standard errors from zero):
+(a) If a predictor is not statistically significant and has the expected sign, it is generally fine to keep it in. It may not help predictions dramatically but is also probably not hurting them.
+(b) If a predictor is not statistically significant and does not have the expected sign (for example, incumbency having a negative effect on vote share), consider removing it from the model (that is, setting its coefficient to zero).
+(c) If a predictor is statistically significant and does not have the expected sign, then think hard if it makes sense. (For example, perhaps this is a country such as India in which incumbents are generally unpopular; see Linden, 2006.) Try to gather data on potential lurking variables and include them in the analysis.
+(d) If a predictor is statistically significant and has the expected sign, then by all means keep it in the model.
+These strategies do not completely solve our problems but they help keep us from making mistakes such as discarding important information. They are predicated on having thought hard about these relationships before fitting the model. It’s always easier to justify a coefficient’s sign after the fact than to think hard ahead of time about what we expect. On the other hand, an explanation that is determined after running the model can still be valid. We should be able to adjust our theories in light of new information.
+
+```{r}
+#invlogit <- function (x) {1/(1+exp(-x))}
+```
+
+Functions to accompany A. Gelman and J. Hill, Data Analysis Using Regression and Multilevel/Hierarchical Models, Cambridge University Press, 2007.
+
+```{r}
+library(arm)
+fit.1 <- glm (Outcome ~ Glucose, diabetes, family = binomial(link = "logit")) 
+display(fit.1, digits = 4, detail = F)
+#summary(fit.1)
+#glm (Outcome ~ Glucose, diabetes, family = binomial(link = "logit"))
+```
+
+
+Andrew Gelman and Jennifer Hill, Data Analysis Using Regression and Multilevel/Hierarchical Models, Cambridge University Press, 2006
+
+```{r}
+fitted(fit.1) # probabilities
+predict(fit.1) # before invlogit is applied, -ve values
+#diabetes %>% 
+#   mutate(PredictedProb = fitted(fit.1)) %>% 
+#   ggplot(aes(Glucose, Outcome)) +
+#   geom_point() +
+#   stat_smooth(aes(Glucose, PredictedProb), se = F) +
+#   labs(y = "Pr(diabetes)", title = "Diabetes ~ ped varying by glu_bin")
+```
+
+
+```{r}
+sim.1 <- sim(fit.1)
+plotx <- function(.data) {
+  plt <- .data %>% mutate(Predicted = fitted(fit.1))
+  for (j in 1:10) {
+    plt <- plt %>% mutate(!!sym(str_c('s_', j)) := 
+                            invlogit(sim.1@coef[j,1] + sim.1@coef[j,2] * Glucose))
+  }
+  plt <- plt %>% ggplot(aes(Glucose, Outcome)) + geom_point() 
+  for (j in 1:10) {
+    plt <- plt + stat_smooth(aes(Glucose, !!sym(str_c('s_', j))), se = F, color = "gray")
+  }
+  plt <- plt + 
+    stat_smooth(aes(Glucose, Predicted), se = F) +
+    labs(y = "Probability (diabetes)", title = "")
+  return(plt)
+}
+plotx(diabetes)
+```
+Figure 5.9 Graphical expression of the fitted logistic regression, Pr(switching wells) = logit−1(0.61 − 0.62 · dist100), with (jittered) data overlain. The predictor dist100 is dist/100: distance to the nearest safe well in 100-meter units.
+
+The probability of switching is about 60% for people who live near a safe well, declining to about 20% for people who live more than 300 meters from any safe well. This makes sense: the probability of switching is higher for people who live closer to a safe well.
+
+Interpreting the logistic regression coefficients
+
+We can interpret the coefficient estimates using evaluations of the inverse-logit function and its derivative, as in the example of Section 5.1. Our model here is
+Pr(switch) = logit−1(0.61 − 0.62 · dist100).
+1. The constant term can be interpreted when dist100 = 0, in which case the probability of switching is logit−1(0.61) = 0.65. Thus, the model estimates a 65% probability of switching if you live right next to an existing safe well.
+
+2. We can evaluate the predictive difference with respect to dist100 by computing the derivative at the average value of dist100 in the dataset, which is 0.48 (that is, 48 meters; see Figure 5.8). The value of the linear predictor here is 0.61−0.62· 0.48 = 0.31, and so the slope of the curve at this point is −0.62e0.31/(1+e0.31)2 = −0.15. Thus, adding 1 to dist100—that is, adding 100 meters to the distance to the nearest safe well—corresponds to a negative difference in the probability of switching of about 15%.
+
+In addition to interpreting its magnitude, we can look at the statistical signifi- cance of the coefficient for distance. The slope is estimated well, with a standard error of only 0.10, which is tiny compared to the coefficient estimate of −0.62. The approximate 95% interval is [−0.82, −0.42], which is clearly statistically significantly different from zero.
+
+
+(remove 0 in glucose)
+value of beta too low, so divide by 10
+
+Adding a second input variable
+
+For the majority of healthy individuals, normal blood sugar levels are as follows: Between 4.0 to 5.4 mmol/L (72 to 99 mg/dL) when fasting. Up to 7.8 mmol/L (140 mg/dL) 2 hours after eating
+https://www.diabetes.co.uk/diabetes_care/blood-sugar-level-ranges.html
+just remove 0s for now (not from final prediction)
+
+
+We now extend the well-switching example by adding the arsenic level of the existing well as a regression input. 
+BMI, DPF, Age
+We expect high BMI to increase probability of diabetes increase.
+
+```{r}
+invlogit(-5.35)
+mean(diabetes$Glucose)
+
+```
+
+
+```{r}
+fit.2 <- glm(Outcome ~ Glucose + BMI, diabetes,
+             family=binomial(link="logit"))
+display(fit.2)
+```
+
+#Sign ot coefficient is positive, and highly significant.
+
+text
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+```{r}
+
+#library(stargazer)
+#stargazer(result, type = "text")
+
+glmfit <- glm(Outcome ~ Pregnancies + Glucose + BloodPressure + SkinThickness + Insulin + BMI + DPF + Age, diabetes, family=binomial("logit"))
+
+summary(glmfit)
+```
+
+```{r}
+summary(glmfit, correlation = T, symbolic.cor = T)
+```
+```{r}
+glmfit$coefficients
+plot(glmfit)
+```
+
+3rd column is wald first/second column 
+
+where there are *** you can reject that beta there is 0
+A value of z2 (Wald statistic) bigger than 3.84 indicates that we can reject the null hypothesis βj = 0 at the .05-level.
+
+skinthickness 93% chance that beta is 0
+
+preganancy does not cause
+Age causes
+
+
+Estimated 
+β
+0
+= −1.827
+ with a standard error of 0.078 is significant and it says that log-odds of a child smoking versus not smoking if neither parents is smoking (the baseline level) is -1.827 and it's statistically significant.
+
+Estimated 
+β
+1
+=
+0.459
+ with a standard error of 0.088 is significant and it says that log-odds-ratio of a child smoking versus not smoking if at least one parent is smoking versus neither parents is smoking (the baseline level) is 0.459 and it's statistically significant. $exp(0.459)=1.58 (58% chance) are the estimated odds-ratios; compare with our analysis in Section 6.2.
+
+https://online.stat.psu.edu/stat504/node/225/
+
+ 
+```{r}
+pchisq(723.45, 759, lower.tail = FALSE)
+```
+
+is the model good abvove?
+Deviance is a measure of goodness of fit of a model. Higher numbers always indicates bad fit.
+
+If your Null Deviance is really small, it means that the Null Model explains the data pretty well. Likewise with your Residual Deviance.
+
+So, we need a better model. One of my favorites for this dataset introduces an interaction between age and wanting no more children, which is easily specified
+
+> lrfit2 = glm( cbind(using, notUsing) ~ age * noMore + hiEduc 
+
+```{r}
+anova(glmfit, test = "Chisq")
+```
+
+
+The basic idea of the procedure is to start from a given model (which could well be the null model) and take a series of steps, by either deleting a term already in the model, or adding a term from a list of candidates for inclusion, called the scope of the search and defined, of course, by a model formula.
+
+Selection of terms for deletion or inclusion is based on Akaike’s information criterion (AIC). R defines AIC as
+
+AIC = –2 maximized log-likelihood + 2 number of parameters
+
+The procedure stops when the AIC criterion cannot be improved.
+
+In R all of this work is done by calling a couple of functions, add1() and drop1()~, that consider adding or dropping one term from a model. These functions can be very useful in model selection, and both of them accept atestargument just likeanova()`.
+
+```{r}
+drop1(glmfit, test = "Chisq")
+```
+
+The sister function add1() requires a scope to define the additional terms to be considered. In our example we will consider all possible two-factor interactions:
+
+```{r}
+grep('Glu', print(add1(glmfit, ~ .^2, test = "Chisq")))
+```
+
+We see that neither of the missing two-factor interactions is significant by itself at the conventional five percent level. (However, they happen to be jointly significant.) Note that the model with the age by education interaction has a lower AIC than our starting model.
+
+The step() function will do an automatic search. Here we let it start from the additive model and search in a scope defined by all two-factor interactions.
+
+
+
+```{r}
+search = step(glmfit, ~.^2)
+```
+
+The step() function produces detailed trace output that I have supressed. The returned object, however, includes an anova component that summarizes the search:
+
+
+```{r}
+search$anova
+```
+
+As you can see, the automated procedure introduced, one by one, all three remaining two-factor interactions, to yield a final AIC of 99.9. This is an example where AIC, by requiring a deviance improvement of only 2 per parameter, may have led to overfitting the data.
+
+Some analysts prefer a higher penalty per parameter. In particular, using log(n) instead of 2 as a multiplier yields BIC, the Bayesian Information Criterion. In our example log(1607) = 7.38, so we would require a deviance reduction of 7.38 per additional parameter. The step() function accepts k as an argument, with default 2. You may verify that specifying k = log(1607) leads to a much simpler model; not only are no new interactions introduced, but the main effect of education is dropped (even though it is significant).
+
+In this example AIC would lead to a model that may be too complex, and BIC would lead to a model that may be too simple. In my opinion, the model with only one interaction is just right.
+
+https://data.princeton.edu/r/glms
+
+```{r}
+with(glmfit, null.deviance - deviance)
+```
+```{r}
+with(glmfit, pchisq(null.deviance - deviance, df.null - df.residual, lower.tail = FALSE))
+```
+The chi-square of 41.46 with 5 degrees of freedom and an associated p-value of less than 0.001 tells us that our model as a whole fits significantly better than an empty model. 
+
+
+====
+
+ 
+Confidence Intervals of Individual Parameters:
+
+
+```{r}
+confint(glmfit)
+```
+
+
+Odds ratio for Pregnancy (subtract 1 to get %)
+The odds of an event represent the ratio of the (probability that the event will occur) / (probability that the event will not occur). This could be expressed as follows:
+
+Odds of event = Y / (1-Y)
+
+
+
+```{r}
+exp(0.060918463)
+exp(0.1868558244)
+```
+
+Thus there is a strong association between parent's and children smoking behavior. But does this model fit?
+
+Overall goodness-of-fit testing
+
+Test: H0 : current model vs. HA : saturated model
+
+The goodness-of-fit statistics, X2 and G2, are defined as before in the tests of independence and loglinear models (e.g. compare observed and fitted values). For the χ2 approximation to work well, we need the ni's sufficiently large 
+
+
+Suppose two alternative models are under consideration, one model is simpler or more parsimonious than the other. ore often than not, one of the models is the saturated model. Another common situation is to consider ‘nested’ models, where one model is obtained from the other one by putting some of the parameters to be zero. Suppose now we test
+
+ H0: reduced model is true vs. HA: current model is true
+ 
+ https://online.stat.psu.edu/stat504/node/220/
+ 
+ Residual deviance is the difference in G2 = −2 logL between a saturated model and the built model. The high residual deviance shows that the model cannot be accepted.
+
+The null deviance is the difference in G2 = −2 logL between a saturated model and the intercept-only model. The high residual deviance shows that the intercept-only model does not fit.
+
+
+
+```{r}
+#residuals.glm(glmfit)
+#residuals.glm(glmfit, type=c("pearson"))
+predict(glmfit, type="response")
+```
+
+```{r}
+tidy(glmfit)
+```
+```{r}
+glance(glmfit)
+#augment(glmfit)
+```
+
+
+```{r}
+augment(glmfit)
+```
+
+In my experience, the current standard practice is to eyeball the residual plots for major misspecifications, potentially have a look at the random effect distribution, and then run a test for overdispersion, which is usually positive, after which the model is modified towards an overdispersed / zero-inflated distribution. This approach, however, has a number of drawbacks, notably:
+
+The model parameters provide measures of strength of associations. In models, the focus is on estimating the model parameters. The basic inference tools (e.g., point estimation, hypothesis testing, and confidence intervals) will be applied to these parameters. When discussing models, we will keep in mind:
+
+Binary logistic regression models are also known as logit models when the predictors are all categorical.
+
+All the inference tools and model checking that we will discuss for log-linear and logistic regression models apply for other GLMs too; e.g., Wald and Likelihood ratio tests, Deviance, Residuals, Confidence intervals, Overdispersion.
+
+Distribution of Yi is Bin(ni, πi), i.e., binary logistic regression model assumes binomial distribution of the response. 
+
+The dependent variable does NOT need to be normally distributed, but it typically assumes a distribution from an exponential family (e.g. binomial, Poisson, multinomial, normal,...)
+
+Does NOT assume a linear relationship between the dependent variable and the independent variables, but it does assume linear relationship between the logit of the response and the explanatory variables; logit(π) = β0 + βX.
+
+It uses maximum likelihood estimation (MLE) rather than ordinary least squares (OLS) to estimate the parameters, and thus relies on large-sample approximations.
+
+Goodness-of-fit measures rely on sufficiently large samples, where a heuristic rule is that not more than 20% of the expected cells counts are less than 5.
+
+Model Fit:
+
+Overall goodness-of-fit statistics of the model; we will consider:
+Pearson chi-square statistic, X2
+Deviance, G2 and Likelihood ratio test and statistic, ΔG2
+Hosmer-Lemeshow test and statistic
+Residual analysis: Pearson, deviance, adjusted residuals, etc...
+Overdispersion
+
+Inference for Logistic Regression:
+
+Confidence Intervals for parameters
+Hypothesis testing
+Distribution of probability estimates
+
+
+The test for independence yields ...
+
+
+Model Diagnostics
+
+The most common diagnostic tool is the residuals, the difference between the estimated and observed values of the dependent variable. There are other useful regression diagnostics, e.g. measures of leverage and influence, but for now our focus will be on the estimated residuals.
+
+...
+
+
+
+
+====
+
+Predictors can be all discrete, in which case we may use log- linear models to describe the relationships. Predictors can also be a mixture of discrete and continuous variables, and we may use something like logistic regression to model the relationship between the response and the predictors.
+
+Example: Grades
+
+Nominal: pass/fail
+Ordinal: A,B,C,D,F
+Interval: 4,3,2.5,2,1
+
+For example for a t-test, we assume that a random variable follows a normal distribution. For discrete data key distributions are: Bernoulli, Binomial, Poisson and Multinomial.
+
+Then X is said to have a binomial distribution with parameters n and p,
+Bin()
+
+Overdispersion
+Count data often exhibit variability exceeding that predicted by the binomial or Poisson. This phenomenon is known as overdispersion.
+
+Consider, for example the number of fatalities from auto accidents that occur next week in the Center county, PA. The Poisson distribution assumes that each person has the
+same probability of dying in an accident. However, it is more realistic to assume that these probabilities vary due to
+
+whether the person was wearing a seat belt
+time spent driving
+where they drive (urban or rural driving)
+Person-to-person variability in causal covariates such as these cause more variability than predicted by the Poisson distribution.
+
+-
+
+Likelihood & LogLikelihood
+Printer-friendly versionPrinter-friendly version
+One of the most fundamental concepts of modern statistics is that of likelihood. In each of the discrete random variables we have considered thus far, the distribution depends on one or more parameters that are, in most statistical applications, unknown. In the Poisson distribution, the parameter is λ. In the binomial, the parameter of interest is p (since n is typically fixed and known).
+
+Likelihood is a tool for summarizing the data’s evidence about unknown parameters. 
+
+-
+
+Whatever function of the parameter we get when we plug the observed data x into f(x ; θ), we call that function the likelihood function.
+
+-
+The deviance statistic is 
+In some texts, G2 is also called the likelihood-ratio test statistic
+
+Large values of X2 and G2 mean that the data do not agree well with the assumed/proposed model M0.
+
+If the sample proportions pj = Xj /n (i.e., saturated model) are exactly equal to the model's πj for cells j = 1, 2, . . . , k, then Oj = Ej for all j, and both X2 and G2 will be zero. That is, the model fits perfectly.
+
+Useful functions in SAS and R to remember for computing the p-values from the chi-square distribution are:
+
+In R, p-value=1-pchisq(test statistic, df), e.g., 1-pchisq(21,10)=0.021
+
+--
+
+The Chi-Squared Distribution
+
+The "degrees-of-freedom" (df), completly specify a chi-squared distribution. Here are the properties of a chi-squared random variable:
+
+A χ2 random variable takes values between 0 and ∞
+The mean of a chi-squared distribution equals to its df
+The variance of a chi-squared distribution equals to 2df, and the standard deviation is 2df‾‾‾‾√.
+The shape of the distribution is skewed to the right.
+As df increase, the mean gets larger and the distribution spreads more.
+As df increase, the distribution becomes more bell-shaped, like a normal
+--
+
+When n is large and the model is true, X2 and G2 tend to be approximately equal. For large samples, the results of the X2 and G2 tests will be essentially the same.
+
+In practice, it's a good idea to compute both X2 and G2 to see if they lead to similar results. If the resulting p-values are close, then we can be fairly confident that the large-sample approximation is working well.
+
+--
+
+Note that numerical values of Χ2 and G2 can be different. We can calculate the p-values for these statistics in order to help determine how well this model fits. The p-values are P(χ25 ≥ 9.2) = .10 and P(χ25 ≥ 8.8) = .12. Given these p-values, with the critical value or Type I error of α=0.05, we fail to reject the null hypothesis.
+
+Small values imply a good fit here, i.e., the observed values are close to what you had assumed. Large values are going to imply the opposite. In this case, the fair-dice model doesn't fit the data very well, but the fit isn't bad enough to conclude beyond a reasonable doubt that the dice is unfair.
+--
+
+we cannot make assumption like this:
+Genetic theory says that the four phenotypes should occur with relative frequencies 9 : 3 : 3 : 1, and thus are not all equally as likely to be observed. The dwarf potato-leaf is less likely to observed than the others. Do the observed data support this theory?
+
+--
+
+There are two types of residuals we will consider: Pearson and deviance residuals.
+
+How large is the discrepancy between the two proposed models? The previous analysis provides a summary of differences between the proposed models. If we want to know more specifically where these differences are, and which differences may lead to potentially rejecting the null hypothesis, residuals can be inspected for relevant clues. 
+
+is called the Pearson residual for cell j, and it compares the observed with the expected counts. The sign (positive or negative) indicates whether the observed frequency in cell j is higher or lower than the value fitted under the model, and the magnitude indicates the degree of departure. 
+When data do not fit a model, examination of the Pearson residuals often helps to diagnose where the model has failed.
+
+
+How large should a "typical" value of  rj be? Recall that the expectation of a χ2 random variable is its degrees of freedom. Thus if a model is true, E(X2) ≈ E(G2) ≈ k − 1, and the typical size of a single rj2  is (k − 1)/k. Thus, if the absolute value, |rj|, is much larger than (k−1)/k‾‾‾‾‾‾‾‾√—say, 2.0 or more—then the model does not appear to fit well for cell j. This helps to identify those cells that do not fit the expected model as closely as we might have assumed.
+
+
+Overdispersion is an important concept with discrete data. In the context of logistic regression, overdispersion occurs when there are discrepancies between the observed responses yi and their predicted values 
+^
+μ
+i
+=
+n
+i
+^
+π
+i
+ and these values are larger than what the binomial model would predict.
+
+If yi ~ Bin(ni, πi), the mean is μi = ni πi and the variance is μi(ni − μi)/ni. Overdispersion means that the data show evidence that the variance of the response yi is greater than μi(ni − μi)/ni.
+
+If overdispersion is present in a dataset, the estimated standard errors and test statistics for individual parameters and the overall goodness-of-fit will be distorted and adjustments should be made. We will look at this briefly later when we look into continuous predictors.
+
+https://online.stat.psu.edu/stat504/node/225/
+
+--
+
+
+
+
+
+
+
