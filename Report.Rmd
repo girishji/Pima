@@ -315,7 +315,7 @@ expected sign, and exclude them if they do not have expected sign.
 
 We start with a simple model and then build in additional complexity, taking care to check 
 for problems along the way. We follow the strategy outlined by
-Gelman and Hill^[p.69, Andrew Gelman and 
+Gelman and Hill^[page 69, Andrew Gelman and 
 Jennifer Hill, _Data Analysis Using Regression and Multilevel/Hierarchical Models, 2006._].
 
 ## Logistic regression with just one predictor
@@ -409,7 +409,7 @@ coefficients are statistically significant, each being more than 2 standard erro
 away from zero. And both their signs make sense: glucose level and BMI are known
 risk factors for diabetes.
 
-For a quick interpretation, we use the “divide by 4 rule”^[p.82, Andrew Gelman and 
+For a quick interpretation, we use the “divide by 4 rule”^[page 82, Andrew Gelman and 
 Jennifer Hill, _Data Analysis Using Regression and Multilevel/Hierarchical Models, 2006._]
 on the coefficients and observe that 1 mg/dL increase in glucose increases probability
 of diabetes diagnosis by 0.88%, and 1 kg/in increase in BMI also increases probability
@@ -569,7 +569,7 @@ Therefore, plots of raw residuals from logistic regressions are not useful.
 plot(fit.7, which = 1)
 ```
 
-A binned residual plot^[p.97, Andrew Gelman and Jennifer Hill, _Data Analysis Using Regression and Multilevel/Hierarchical Models, 2006._] is better. 
+A binned residual plot^[page 97, Andrew Gelman and Jennifer Hill, _Data Analysis Using Regression and Multilevel/Hierarchical Models, 2006._] is better. 
 
 From the authors:
 
