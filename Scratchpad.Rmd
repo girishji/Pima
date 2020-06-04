@@ -218,7 +218,7 @@ drop1(glmfit, test = "Chisq")
 The sister function add1() requires a scope to define the additional terms to be considered. In our example we will consider all possible two-factor interactions:
 
 ```{r}
-grep('Glu', print(add1(glmfit, ~ .^2, test = "Chisq")))
+add1(glmfit, ~ .^2, test = "Chisq")
 ```
 
 We see that neither of the missing two-factor interactions is significant by itself at the conventional five percent level. (However, they happen to be jointly significant.) Note that the model with the age by education interaction has a lower AIC than our starting model.
@@ -477,7 +477,210 @@ https://online.stat.psu.edu/stat504/node/225/
 
 
 
+*Check for interactions*
+
+`Age` and number of `Pregnancies` seems to have a natural 
+correlation, as
+indicated by the correlation matrix. `Age` by itself is not 
+statistically significant from 0 (at 95%). The interaction
+`Age:Pregnancies`
+is a candidate for inclusion in the model. 
+
+A quick fit analysis of all possible two-factor 
+interactions^[See Appendix B.]
+reveals that interaction between `Glucose` and `DPF` is
+statistically significant. 
+
+Our model so far:
+
+::: {.fullwidth}
+```{r}
+fit.8 <- glm(Outcome ~ Glucose + BMI + Pregnancies + 
+               DPF + Age + Pregnancies:Age + DPF:Glucose,
+             diabetes, family = binomial(link="logit"))
+arm::display(fit.8, digits = 4)
+```
+:::
+
+
+*Interpretation of interactions*
+
+`Pregnancies:Age` has a coefficient of -0.0087, and it is 
+only mildly statistically
+significant from zero. It's 95% interval is (-0.0143, -0.0031). The
+sign of the coefficient is negative while signs of coefficents of
+`Age` and `Pregnanacies` are both positive. This can be interpreted two
+ways. For every additional pregnancy, the value of -0.0087 is 
+subtracted from the coefficient of `Age`. Subtracting -0.0087 from
+0.0455 (coefficient of `Age` alone) results in 19% reduction in
+the effect produced by `Age`. As subjects have more pregnancies, effect
+of age on diagnosis of diabetes decreases. Similarly, every
+1 year of additional age also decreases the effec to pregnancy
+on diagnosis of diabetes.
+
+`Glucose:DPF` is mildly statistically significant with a coefficient
+of -0.0234. Its 95%
+interval is (-0.007, -0.0398). `DPF` is a measure of hereditory
+factors contributing to diagnosis of diabetes. It is a ratio with
+values in the range (0, 1). One way to interpret this is that, if
+blood glucose increases in an individual by 10 mg/dL, then
+effect of hereditory factors as represented by `DPF` decreases
+by 0.234 (0.0234*10). Given that `DPF` has a coefficient of 3.947,
+the level of reduction is about 6%.
+
+
+--
+
+In our model, 3 out of 27 binned residuals fall outside the bounds. This is
+a resonably good model.
+
+We observe no dramatic pattern which may suggest a 
+transformation, like _log_, on a variable.
+There is one outlier below 0.5 and two above 0.5 of fitted value.
+Residual is the difference between actual and predicted values.
+A positive residual below 0.5 of fitted value indicates that the 
+model underpredicts diabetes.
+When expected values are in (0.5, 0.6), the model overpredicts.
+Above 0.6 the model underpredicts diabetes.
+
+
+
+Sensitivity : 0.7739          
+            Specificity : 0.7406          
+         Pos Pred Value : 0.8463          
+         Neg Pred Value : 0.6396          
+             Prevalence : 0.6486          
+         Detection Rate : 0.5020          
+   Detection Prevalence : 0.5931          
+      Balanced Accuracy : 0.7573          
+               
+               Sensitivity : 0.8859          
+            Specificity : 0.5752          
+         Pos Pred Value : 0.7938          
+         Neg Pred Value : 0.7321          
+             Prevalence : 0.6486          
+         Detection Rate : 0.5746          
+   Detection Prevalence : 0.7239          
+      Balanced Accuracy : 0.7306          
+                                       
+                                       
+                                       The ability to forecast is central to many medical situations. Standard statistical 
+techniques such as discriminate
+analysis, regression analysis, and factor analysis have been used to
+provide this ability. Even though sophesticated neural network models have been
+used
+to predict the onset of diabetes using the same data set, we beleive
+there is merit in using workhorse statistical models since sample size is
+fairly large (768 observations) and underlying functional correlations
+among variables can be evaluated and minimized. 
+
+
+
+In diagnostic medicine, testing the hypothesis that the ROC Curve area or partial 
+area has a specific value is a common practice^[*Statistical Methods in 
+Diagnostic Medicine*, Second Edition, Ch.4,
+Author(s): Xiao‐Hua Zhou Nancy A. Obuchowski Donna K. McClish]. 
+
+Although many sophisticated models have been developed for discriminant analysis, 
+recent empirical comparisons indicate that standard methods such as 
+logistic regression work very well^[C B Begg. *Statistical Methods in Medical Diagnosis*].
+
+Our null hypothesis is that binary choice models like logit and probit
+will produce as good a result as ADAP.
+
+*H0: Crossover point for sensitivity and specificity for binary choice models is greater than 0.76.*
+
+## Confusion matrix and ROC
+
+Confusion matrix, so named because the matrix summarizes how the 
+model is confused, summarizes different types of model errors,
+such as false positives (Type 1 Error) and false 
+negatives (Type 2 Error).
+
+
+
+- 0.5
+
+At 0.5 cut off for positive diagnosis, our model has has 
+sensitivity of 0.8800 and specificity of 0.5821.
+
+```{r}
+caret::confusionMatrix(factor(if_else(fitted(fit.f) > 0.34, 1, 0)), 
+                factor(diabetes$Outcome))
+```
 
 
 
 
+Sensitivity : 0.8800          
+            Specificity : 0.5821  
+
+
+
+"positive" "table"    "overall"  "byClass"  "mode"     "dots"    
+
+# Results
+
+
+True Positive:
+Interpretation: You predicted positive and it’s true.
+You predicted that a woman is pregnant and she actually is.
+True Negative:
+Interpretation: You predicted negative and it’s true.
+You predicted that a man is not pregnant and he actually is not.
+False Positive: (Type 1 Error)
+Interpretation: You predicted positive and it’s false.
+You predicted that a man is pregnant but he actually is not.
+False Negative: (Type 2 Error)
+Interpretation: You predicted negative and it’s false.
+You predicted that a woman is not pregnant but she actually is.
+
+```{r}
+table(if_else(fitted(fit.8) > 0.5, 1, 0))
+factor(if_else(fitted(fit.8) > 0.5, 1, 0))
+table(diabetes$Outcome)
+factor(diabetes$Outcome)
+
+confusionMatrix(factor(if_else(fitted(fit.8) > 0.5, 1, 0)), factor(foo$Outcome))
+confusionMatrix(factor(if_else(fitted(fit.1) > 0.5, 1, 0)), factor(diabetes$Outcome))$table
+confusionMatrix(factor(if_else(fitted(fit.7) > 0.5, 1, 0)), factor(diabetes$Outcome))$table
+
+confusionMatrix(factor(if_else(fitted(fit.8) > 0.5, 1, 0)), factor(foo$Outcome))$table
+# not sensitive to .5
+
+```
+
+
+```{r}
+library(pROC); library(plotROC)
+invisible(plot(roc(foo$Outcome,
+                   fitted(fit.8)),
+               col = "red", 
+               main = "ROC curves: logistic model 1 (red) vs. logistic model 2 (blue)", 
+               print.thres = c(0.1, 0.338),
+               print.auc = T))
+
+invisible(plot(roc(diabetes$Outcome,
+                   fitted(fit.1)),
+               col = "red", 
+               main = "ROC curves: logistic model 1 (red) vs. logistic model 2 (blue)", 
+               print.thres = c(0.1, 0.5),
+               print.auc = T))
+
+```
+
+A model with accuracy of 50%, a random classifier, would have a ROC curve that followed the diagonal reference line. A model with accuracy of 100%, a perfect classifier, would have a ROC curve following the margins of the upper triangle. Each point on the ROC curve represents a sensitivity/specificity pair corresponding to a particular decision threshold. When we set the decision threshold to .1 the sensitivity was .73 (243 / (243 + 90)) and the specificity was .94 (9105 / (9105 + 562)). That point is displayed on the curve. Likewise when we set the decision threshold to .5 the sensitivity was .32 and the specificity was .996. That point is also on the curve. Which decision threshold is optimal? Again, it depends on the business application. ROC curves allow us to choose the class specific errors we make.
+
+A receiver operating characteristic (ROC) curve visualizes the trade-offs between kinds of errors by plotting specificity against sensitivity. Calculating the area under the ROC curve (AUC) allows us, furthermore, to summarize model performance and compare models. The curve itself shows the sorts of errors the model would make at different decision thresholds.
+
+AUC is the summary of how the model does at every decision threshold. In general, models with higher AUC are better. The AUC for the logistic model was .95. We can use the ROC curve and AUC to compare classifiers. Let’s compare the logistic model with a KNN model.
+
+
+# Data
+
+1) widen the r cells using :::
+2) spell check
+
+
+`r newthought('
+                                      
