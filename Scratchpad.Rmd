@@ -12,6 +12,18 @@ diabetes
 ```
 `r margin_note('A subset of data.')`
 
+graphics.off()
+par("mar")
+par(mar=c(1,1,1,1))
+
+
+diabetes %>%
+  summarise_each(~ sum(.x == 0)) %>%
+  pivot_longer(everything(), names_to = 'Variable',
+               values_to = 'Count of Zero Values') %>%
+  kable(caption = 'Zero values in some variables indicate errors in data.')
+ kable_styling(full_width = F)
+ 
 But in practical data analysis it is usually easiest to start with a simple model and then build in additional complexity, taking care to check for problems along the way. 
 There are typically many reasonable ways in which a model can be constructed. Models may differ depending on the inferential goals or the way the data were collected. Key choices include how the input variables should be combined in cre- ating predictors, and which predictors should be included in the model. In classical regression, these are huge issues, because if you include too many predictors in a model, the parameter estimates become so variable as to be useless. 
 This section focuses on the problem of building models for prediction.

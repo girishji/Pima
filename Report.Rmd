@@ -65,6 +65,7 @@ display <- function(object, digits=4, detail=FALSE) {
   }
   return(invisible(out))
 }
+
 ```
 
 # Objective
@@ -242,6 +243,7 @@ diabetes %>%
   geom_jitter(size=0.1, alpha=0.2) +
   stat_summary(fun=mean, geom="point", shape=20, size=4, color="red", fill="red") +
   geom_boxplot(alpha = 0.3) +
+  theme_light() +
   theme(legend.position="none") +
   xlab("") +
   ylab('')
@@ -259,6 +261,7 @@ diabetes %>%
              fill = Regressor)) +
   geom_density(alpha = 0.3) +
   facet_wrap(~Regressor, scales = "free", nrow = 2) +
+  theme_light() +
   theme(legend.position="none") +
   xlab('') +
   ylab('')
@@ -340,7 +343,7 @@ diabetes %>% mutate(Predicted = fitted(fit.1)) %>%
   filter(Glucose != 0) %>% 
   ggplot(aes(Glucose, Diagnosis)) + geom_point() +
   stat_smooth(aes(Glucose, Predicted), se = F) +
-  ylab('Probability of diabetes')
+  ylab('Probability of diabetes') + theme_light()
 ```
 :::
 
@@ -358,7 +361,8 @@ plotx <- function(.data) {
   }
   plt <- plt + 
     stat_smooth(aes(Glucose, Predicted), se = F) +
-    labs(y = "Probability (diabetes)", title = "")
+    labs(y = "Probability (diabetes)", title = "") +
+    theme_light()
   return(plt)
 }
 plotx(diabetes) 
