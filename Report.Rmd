@@ -23,46 +23,88 @@ library(kableExtra)
 # invalidate cache when the tufte version changes
 knitr::opts_chunk$set(tidy = FALSE, cache.extra = packageVersion('tufte'))
 options(htmltools.dir.version = FALSE)
+
+library(arm)
+display <- function(object, digits=4, detail=FALSE) {
+  out <- NULL
+  #out$call <- object$call
+  summ <- summary(object, dispersion = object$dispersion)
+  if(detail){
+    coef <- summ$coef[, , drop = FALSE]
+    out$z.value <- coef[,3]#,drop=FALSE]
+    out$p.value <- coef[,4]#,drop=FALSE]
+  }
+  else{
+    coef <- summ$coef[, 1:2, drop = FALSE]
+  }
+  dimnames(coef)[[2]][1:2] <- c("coef.est", "coef.se")
+  out$n <- summ$df[1] + summ$df[2]
+  out$k <- summ$df[1]
+  out$coef <- coef[,"coef.est"]
+  out$se <- coef[,"coef.se"]
+  #print(out$call)
+  pfround(coef, digits)
+  out$deviance <- summ$deviance
+  out$null.deviance <- summ$null.deviance
+  cat("---\n")
+  cat(paste("  n = ", out$n, ", k = ", out$k, "\n  residual deviance = ",
+            fround(out$deviance, 1), ", null deviance = ", fround(out$null.deviance, 1), 
+            "\n  (difference = ", fround(summ$null.deviance - summ$deviance, 1), ")", "\n", sep = ""))
+  out$dispersion <- if (is.null(object$dispersion)){
+    summ$dispersion
+  } else {
+    object$dispersion
+  }
+  if (out$dispersion != 1) {
+    cat(paste("  overdispersion parameter = ", fround(out$dispersion, 1), "\n", sep = ""))
+    if (family(object)$family=="gaussian") {
+      out$sigma.hat <- sqrt(out$dispersion)
+      cat(paste("  residual sd is sqrt(overdispersion) = ",
+                fround(out$sigma.hat, digits), "\n", sep = ""))
+    }
+  }
+  return(invisible(out))
+}
 ```
 
 # Objective
 
-To develop and validate an emperical equation to predict the onset of diabetes
+To develop and validate an empirical equation to predict the onset of diabetes
 in Pima Indian women, and compare the results to a prior attempt
-by [Smith et. al.](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC2245318/pdf/procascamc00018-0276.pdf)^[JW Smith, 
+by [Smith et al.](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC2245318/pdf/procascamc00018-0276.pdf)^[JW Smith, 
 JE Everhart, WC Dicksont,
 WC Knowler, RS Johannes. 1988. *Using the ADAP Learning Algorithm to Forecast
 the Onset of Diabetes Mellitus*]
-
 
 # Research Design and Methods
 
 A predictive equation was developed using logistic regression analysis and
 data collected from 768 Pima Indian women. The equation incorporated age,
-BMI, capillary plasma glucose, a hereditory function, and
+BMI, capillary plasma glucose, a hereditary function, and
 pregnancy count as independent covariates for diagnosing onset of
 diabetes within 5 years. The
 equation was evaluated using binned residual plots^[A. Gelman and J. Hill, 
 _Data Analysis Using Regression and Multilevel/Hierarchical Models_, 
 Cambridge University Press, 2007.]. Its predictive performance
-was compared against the results obtained by Smith et. al.
+was compared against the results obtained by Smith et al.
 
 # Results
 
 The predictive equation was calculated using logistic regression
 parameters as follows: $P(diagnosis = 1) = 1/(1 - e^{-x})$, where
 _x_ = -10.357 + 0.045(*blood glucose in mg/dL*) + 0.082(*BMI in kg/in*) 
-+ 0.125(*pregnancy count*) + 3.966(*hereditory factor in the range [0, 1]*) + 
++ 0.125(*pregnancy count*) + 3.966(*hereditary factor in the range [0, 1]*) + 
 0.011(*age in years*) - 
-0.024(*blood glucose X hereditory factor*).
+0.024(*blood glucose X hereditary factor*).
 At 0.5 threshold for fitted values, equation's sensitivity was 88%, 
 specificity was 58%, and accuracy was 78%. 
 At 0.34 cut point for positive diagnosis, equation's sensitivity was 76%, 
-specificity was 74%, and accuracy was 76%. The area under
-ROC curve was 84%. In contrast, Smith et. al. report sensitivity and 
+specificity was 74%, and error rate was 22%. The area under
+ROC curve was 84%. In contrast, Smith et al. report sensitivity and 
 specificity
-of 76%, and they did not report the area under ROC curve, even though
-they reported the shape of the curve.
+of 76%. They did not report error rate or the area under ROC curve, 
+even though
+they reported the shape of the ROC curve.
                                        
 # Conclusion
 
@@ -70,8 +112,7 @@ Performance of logistic regression model compares favorably with
 neural network models like ADAP learning algorithm. Careful selection 
 of input variables, transformations, and interactions can result
 in a logistic regression model whose performance will be
-on par with more sophesticated
-techniques.
+on par with more sophisticated techniques.
 
 ---
 $\\$
@@ -87,28 +128,25 @@ logistic regression work very well^[C B Begg. *Statistical Methods in Medical Di
 
 # Data and Related Work
 
-Smith et. al.^[JW Smith, JE Everhart, WC Dicksont,
+`r newthought('Smith et al')`.^[JW Smith, JE Everhart, WC Dicksont,
 WC Knowler, RS Johannes. 1988. *Using the ADAP Learning Algorithm to Forecast
 the Onset of Diabetes Mellitus*] have used the ADAP Learning Algorithm to forecast
 the onset of diabetes mellitus. 
-They describe ADAP as "an adaptive learning routine that generates and executes
-digital analogs of perceptron-like devices". 
+They describe ADAP as "*an adaptive learning routine that generates and executes digital analogs of perceptron-like devices*". 
 
-> "ADAP was developed by two of the authors [Smith, Dickson] in 1961. We chose to examine the ADAP algorithm and test its use in forecasting the onset of non-insulin-dependent diabetes mellitus (DM) within a five-year period. The data used in this study were from the Pima Indian population near Phoenix, Arizona. Once the algorithm had been trained using 576 cases, ADAP was used to forecast whether another 192 test cases would develop diabetes within five years. Forcing ADAP to conclude on all test cases produced a sensitivity and specificity of 76 percent."
-
-
-Data used by Smith et. al. is available from [Kaggle](https://www.kaggle.com/uciml/pima-indians-diabetes-database) via UCI Machine Learning Repository.
+Data used by Smith et al. is available from [Kaggle](https://www.kaggle.com/uciml/pima-indians-diabetes-database) via UCI Machine Learning Repository.
 
 `r margin_note('A subset of data.')`
 ```{r echo=T}
 diabetes <- read.csv(
-  "https://raw.githubusercontent.com/girishji/Pima/master/data/diabetes.csv")
+  str_c("https://raw.githubusercontent.com/girishji/", 
+        "Pima/master/data/diabetes.csv"))
 head(diabetes) %>% kable()
 ```
 
 ## Study Population
 
-The population for this study was the Pima Indian population near
+`r newthought('The population')` for this study was the Pima Indian population near
 Phoenix, Arizona. That population has been under continuous
 study since 1965 by the 
 [National Institute of Diabetes and Digestive and Kidney Diseases](https://www.niddk.nih.gov/) 
@@ -120,7 +158,7 @@ diagnosed according to
 World Health Organization Criteria^[World Health Organization, *Report of a Study Group: Diabetes Mellitus*. World Health Organization Technical
 Report Series. Geneva, 727, 1985.];
 that is, if the 2 hour post-load plasma glucose was at least 200
-mg/dl (11.1 mmol/l) at any survey examination or if the 
+mg/dL (11.1 mmol/l) at any survey examination or if the 
 [Indian Health Service Hospital](https://www.ihs.gov/) serving the 
 community found a glucose
 concentration of at least 200 mg/dl during the course of routine 
@@ -135,7 +173,7 @@ longitudinal manner.
 
 ## Variables
 
-The subjects of the study are Pima Indian women over 21 years of age. 
+`r newthought('The subjects')` of the study are Pima Indian women over 21 years of age. 
 The following explanatory variables are found to be the risk factors 
 for diabetes.
 
@@ -147,7 +185,7 @@ Glucose Tolerance Test (GTIT) (in mg/dL)
 5. `Insulin`: 2-Hour Serum Insulin (Uh/ml)
 6. `BMI`: Body Mass Index (Weight in kg / (Height in in))
 7. `DPF`^[Diabetes Pedigree Function was developed 
-by Smith et. al.* to provide a measure of the expected 
+by Smith et al.* to provide a measure of the expected 
 genetic influence of affected and unaffected relatives on the 
 subject's eventual diabetes
 risk. It  uses information from parents, grandparents,
@@ -163,26 +201,25 @@ is positive within five years, and 0 otherwise.
 
 ## Observations from Data
 
-Preliminary examination of data reveals the following:
+`r newthought('Preliminary examination')` of data reveals the following:
 
-- There are many spurious 0 values in data, especially in `Insulin` and
+- There are many spurious 0 values in the data, especially in `Insulin` and
 `SkinThickness`. These values skew the mean and cause excessive outliers. 
 We assume these to be errors in data, and suitable remedies
 will be employed to address the skew.
 
 - There are 500 negative instances (65.1%)
-of the regressand (`Outcome`), comapared to 258 positive instances (34.9%).
-Since CDFs underlying binomial logit and probit
-models differ most in the tails, and produce similar predicted probabilities
-for non-extreme values^[Christopher Baum. *An Introduction to Modern Econometrics Using Stata*], it is likely that the results obtained from logit and probit models 
-are going to be similar.
+of the regressand (`Outcome`), compared to 258 positive instances (34.9%).
+Even though we only present logit model in this study, using probit
+model will likely not produce a different result since the CDFs 
+underlying binomial logit and probit
+models differ most in the tails.
 
 - From the density plot (after temporarily filtering out spurious zero 
 values) we can observe that not all distributions are normal. Data is skewed
-towards younger subjects. `Pregnancies` are also skewed towards fewer pregnancies.
+towards younger subjects. `Pregnancies` are also skewed towards 
+subjects having fewer pregnancies.
 `BMI`, `Insulin`, and `SkinThickness` have long tails on the right side.
-
-
 
 ```{r echo=F}
 diabetes %>%
@@ -235,19 +272,20 @@ diabetes %>%
   ggcorr(method = c("everything", "pearson"))
 ```
 
-Scatter plots and correlation matrix reveal the following:
+`r newthought('Scatter plots and correlation matrix')` reveal the following:
 
-- Among all the regressors, `Glucose` concentration has the highest correlation (.467) with onset of diabetes.
+- Among all the regressors, `Glucose` concentration has the highest correlation (.467) with onset of diabetes. 
 
 - `Age` is not strongly correlated (.238) with the onset of diabetes. This seems to suggest that, either accumulation of unhealthy lifestyle habits is not a factor, or that such factors have already expressed themselves by the age of 21 years.
 
-- Diabetes Pedigree Function (`DPF`) is not highly correlated with onset of diabetes, which suggests that hereditory factors may be less important.
+- Diabetes Pedigree Function (`DPF`) is not highly correlated with onset of diabetes, which suggests that hereditary factors may be less important.
 
-- `Insulin` and `SkinThickness` show significant correlation (.437), but this maybe a result of both variables having too many spurios zero values.
+- `Insulin` and `SkinThickness` show significant correlation (.437), but this may be a result of both variables having too many spurious zero values.
 
 - Presence of spurious zero values in `Insulin` could be masking its correlation with `Glucose`.
 
-- None of the explanatory variables are strongly correlated with the response variable.
+- None of the explanatory variables are correlated with
+the response variable in a dominating way.
 
 ```{r fig.cap = "Correlation matrix of regressors.", cache=TRUE, echo=FALSE}
 diabetes %>% 
@@ -260,9 +298,9 @@ diabetes %>%
 
 # Model
 
-`r newthought('Logistic regression')` is the standard way to model binary outcomes. We model the probability that $y = 1$,
-$$P(y_i = 1) = logit^{−1}(X_iβ),$$
-under the assumption that the outcomes $y_i$ are independent given these probabilities.
+`r newthought('Logistic regression')` is the standard way to model binary outcomes. We model the probability that $DiabetesDiagnosis = 1$,
+$$P(DiabetesDiagnosis_i = 1) = logit^{−1}(X_iβ),$$
+under the assumption that the outcomes $DiabetesDiagnosis_i$ are independent given these probabilities.
 We refer to $Xβ$ as the linear predictor. The function $logit^{-1}(x) = \frac{e^x}{1+e^x}$ transforms 
 the continuous values to the range (0, 1), which is necessary since probabilities must be between 0 and 1.
 
@@ -282,29 +320,28 @@ Jennifer Hill, _Data Analysis Using Regression and Multilevel/Hierarchical Model
 matrix reflects this relationship. We shall first fit the model just using `Glucose` and then
 put in other variables.
 
-
+::: {.fullwidth}
 ```{r}
 fit.1 <- glm(Outcome ~ Glucose, diabetes,
              family = binomial(link = "logit")) 
-arm::display(fit.1, digits = 4)
+display(fit.1)
 ```
+:::
 
 The coefficient for `Glucose` is .0379, which seems low, but it is measured in mg/dL. The mean 
 value for `Glucose` is 120 mg/dL. Multiplicative effect is still significant.
 
 ## Graphing the fitted model
 
-```{marginfigure}
-Graphical expression of the fitted logistic regression, $$P(diabetes) = logit^{−1}(-5.3501 + 0.0379 · Glucose).$$
-```
-
-```{r warning=F, message=F}
+::: {.fullwidth}
+```{r warning=F, message=F, fig.width = 5, fig.height = 3}
 diabetes %>% mutate(Predicted = fitted(fit.1)) %>% 
   filter(Glucose != 0) %>% 
   ggplot(aes(Glucose, Outcome)) + geom_point() +
   stat_smooth(aes(Glucose, Predicted), se = F) +
-  ylab('Probability (diabetes)')
+  ylab('Probability of diabetes')
 ```
+:::
 
 ```{r echo=F, message=F, fig.margin=T, fig.cap="The solid line shows the best-fit logistic regression, and the light lines show uncertainty in the fit."}
 sim.1 <- arm::sim(fit.1)
@@ -336,7 +373,7 @@ However `Glucose` level at 0 does not make sense, so we try not
 to interpret this.
 
 - We can evaluate the predictive difference with respect to `Glucose` by computing the 
-derivative at the average value of `Glucose` in the dataset, which is 120.9 mg/dL. The 
+derivative at the average value of `Glucose` in the data set, which is 120.9 mg/dL. The 
 value of the linear predictor here is -5.3501 + 0.0379 · 120.9 = -0.76799, and so 
 the slope of the curve at this point is $0.0379e^{-0.76799}/(1+e^{-0.76799})^2$ = .0082. 
 Thus, adding 10 mg/dL to `Glucose` corresponds to a positive difference in the probability of
@@ -352,15 +389,17 @@ which is clearly statistically (significantly) different from zero.
 
 `r newthought('We extend the model by adding BMI')`. We expect the coefficient to be positive.
 
+::: {.fullwidth}
 ```{r}
 fit.2 <- glm(Outcome ~ Glucose + BMI, diabetes,
              family = binomial(link="logit"))
-arm::display(fit.2, digits = 4)
+display(fit.2)
 ```
+:::
 
 Comparing two individuals, the one with 1 mg/dL higher blood glucose will encounter
 0.0352 logit probability of diabetes diagnosis. Similarly, an increase of 1 kg/in in
-BMI corresponds to an increase of 0.0763 logit prbability of diagnosis. Both 
+BMI corresponds to an increase of 0.0763 logit probability of diagnosis. Both 
 coefficients are statistically significant, each being more than 2 standard errors 
 away from zero. And both their signs make sense: glucose level and BMI are known
 risk factors for diabetes.
@@ -389,24 +428,26 @@ in the correlation matrix.
 
 `r newthought('We check if Pregnancies')` is a significant factor.
 
+::: {.fullwidth}
 ```{r}
 fit.3 <- glm(Outcome ~ Glucose + BMI + Pregnancies, diabetes,
              family = binomial(link="logit"))
-arm::display(fit.3, digits = 4)
+display(fit.3)
 ```
+:::
 
 Number of pregnancies has small standard error and is statistically significant from 0 
 at 95% interval (0.0835, 0.1907). It is not obvious why high number of 
 pregnancies is a risk factor though.
 
-`r newthought('Now we add DPF')`, the hereditory factor. Although diabetes mellitus is not
+`r newthought('Now we add DPF')`, the hereditary factor. Although diabetes mellitus is not
 genetic per se, DNA may influence the risk of developing it. This type of
 diabetes tends to run in families.
 
 ```{r}
 fit.4 <- glm(Outcome ~ Glucose + BMI + Pregnancies + DPF, 
              diabetes, family = binomial(link="logit"))
-arm::display(fit.4, digits = 4)
+display(fit.4)
 ```
 
 DPF has a positive coefficient as expected, but has some standard error.
@@ -416,12 +457,14 @@ significant from 0.
 `r newthought('Age')` is not known to be a risk factor for this type of diabetes. We shall
 check that assumption.
 
+::: {.fullwidth}
 ```{r}
 fit.5 <- glm(Outcome ~ Glucose + BMI + Pregnancies + 
                DPF + Age, 
              diabetes, family = binomial(link="logit"))
-arm::display(fit.5, digits = 4)
+display(fit.5)
 ```
+:::
 
 `Age` is not statistically significant, since it has a large 
 standard error. However, it has the correct sign in the coefficient.
@@ -431,12 +474,14 @@ very much but will not hurt either. So we decided to keep it.
 `r newthought('We add Blood Pressure')` to the model 
 and check if it is significant.
 
+::: {.fullwidth}
 ```{r}
 fit.5 <- glm(Outcome ~ Glucose + BMI + Pregnancies + 
                DPF + Age + BloodPressure, 
              diabetes, family = binomial(link="logit"))
-arm::display(fit.5, digits = 4)
+display(fit.5)
 ```
+:::
 
 `BloodPressure` is only marginally statistically significant from 0.
 The standard error is large, and consequently, its 95% interval is
@@ -453,19 +498,21 @@ It is worth noting beforehand that
 both of them have too many zeros
 in their columns. 
 
+::: {.fullwidth}
 ```{r}
 fit.6 <- glm(Outcome ~ Glucose + BMI + Pregnancies + 
                DPF + Age + SkinThickness + Insulin,
              diabetes, family = binomial(link="logit"))
-arm::display(fit.6, digits = 4)
+display(fit.6)
 ```
+:::
 
 Both `SkinThickness` and `Insulin` suffer from large standard error
 and are not statistically significant from 0. 
 
-`SkinThickness` measures subcutaneal fat, and we would
+`SkinThickness` measures subcutaneous fat, and we would
 expect the sign of the coefficient to be positive. Given the -ve
-sign of the coefficient, large standard error, and occurance 
+sign of the coefficient, large standard error, and occurrence 
 of zeros in the data, we decided to remove
 this variable from the model.
 
@@ -479,14 +526,14 @@ Our model so far is as follows:
 fit.7 <- glm(Outcome ~ Glucose + BMI + Pregnancies +
                DPF + Age,
              diabetes, family = binomial(link="logit"))
-stargazer::stargazer(fit.7, type = 'text', single.row = TRUE)
+stargazer::stargazer(fit.7, type = 'text', single.row = TRUE,
+                     dep.var.caption = "")
 ```
 :::
 
 ## Check for interactions
 
-A quick search of all possible 
-two-factor interactions based on reducing AIC
+`r newthought('A quick search of all possible two-factor interactions')` based on reducing AIC
 values reveals the following candidates
 for inclusion.
 
@@ -517,7 +564,7 @@ Therefore, plots of raw residuals from logistic regressions are not useful.
 plot(fit.7, which = 1)
 ```
 
-`r newthought('A binned residual plot')`^[p.97, Andrew Gelman and Jennifer Hill, _Data Analysis Using Regression and Multilevel/Hierarchical Models, 2006._] is better. 
+A binned residual plot^[p.97, Andrew Gelman and Jennifer Hill, _Data Analysis Using Regression and Multilevel/Hierarchical Models, 2006._] is better. 
 
 From the authors:
 
@@ -546,17 +593,18 @@ The dotted lines in the binned residual plot indicate theoretical 95% error boun
 that would be appropriate if the model were true.
 ```
 
-```{r}
+```{r fig.width=6, fig.height=4}
 arm::binnedplot(fitted(fit.7), 
-           residuals(fit.7, type = "response"))
+                residuals(fit.7, type = "response"))
 ```
 
 ## Plotting binned residuals versus inputs of interest
 
-To understand the deviation better, we bin and plot residuals with respect to 
+`r newthought('To understand the deviation better')`, we bin and plot residuals with respect to 
 individual input variables. 
 
-```{r fig.fullwidth = TRUE}
+::: {.fullwidth}
+```{r fig.fullwidth = TRUE, fig.width=7, fig.height=4}
 par(mfrow = c(2, 3))
 for (inp in c('Glucose', 'BMI', 'Pregnancies', 'DPF', 'Age')) {
   arm::binnedplot(diabetes[[inp]], 
@@ -564,53 +612,51 @@ for (inp in c('Glucose', 'BMI', 'Pregnancies', 'DPF', 'Age')) {
                   main = inp)
 }
 ```
+:::
 
 Only `BMI` and `Age` exhibit outliers. `BMI`
 has 6 outliers and 4 of them are on the lower left quadrant (similar
-to our fitted model). Enlarging the binned residuals plot 
-for BMI we can 
-see this situation better.
+to our fitted model). 
 
-```{r}
-arm::binnedplot(diabetes$BMI, 
-                  residuals(fit.7, type = "response"), 
-                  main = 'Binned residual plot of BMI')
-```
-
-The raising and falling nature of residuals suggests that 
-a log transformation on `BMI` may help. Unfortunately, applying log 
+The raising and falling nature of residuals of `BMI` suggests that 
+a log transformation on `BMI` may help. Applying log 
 transformation (after temporarily removing spurious 0 values
 in the data) reduces outlier count from 6 to 4, but
 at the cost of discarding 11 observations. We decided not
 to apply log transformation on `BMI`.
 
-```{r}
+::: {.fullwidth}
+```{r fig.width=5, fig.height=4}
 fit.8 <- glm(Outcome ~ Glucose + log(BMI) + Pregnancies +
                DPF + Age,
-             diabetes %>% filter(BMI != 0), family = binomial(link="logit"))
+             diabetes %>% filter(BMI != 0), 
+             family = binomial(link="logit"))
 arm::binnedplot(fitted(fit.8), 
                 residuals(fit.8, type = "response"),
-                main = 'Binned residual plot with log(BMI)')
+                main = 'Binned residuals with log(BMI)')
 ```
+:::
+
+## Check for interactions revisited
 
 Finally, we revisit the topic of combining inputs. From AIC analysis
 before we have 4 candidates for inclusion, namely, `Pregnancies:Age`,
 `Glucose:DPF`, `Glucose:Age`, and `BMI:Pregnancies`. 
 
-
-```{r fig.fullwidth = TRUE}
+::: {.fullwidth}
+```{r}
 base <- "Outcome ~ Glucose + BMI + Pregnancies + DPF + Age + "
-par(mfrow = c(2, 3))
+par(mfrow = c(2, 2))
 for (inter in c('Pregnancies:Age', 'Glucose:DPF', 
                       'Glucose:Age', 'BMI:Pregnancies')) {
   fit.temp <- glm(str_c(base, inter),
              diabetes, family = binomial(link="logit"))
   arm::binnedplot(fitted(fit.temp), 
                   residuals(fit.temp, type = "response"),
-                  main = str_c('After including ', inter))
+                  main = str_c('With ', inter))
 }
 ```
-
+:::
 
 `Glucose:DPF` is the most promising. Even though both `Glucose:DPF`
 and `Glucose:Age` have only 2 outliers, `Glucose:DPF` has tighter
@@ -620,19 +666,21 @@ and its significance increases as we combine it with another
 highly significant input `Glucose`.
 
 Incorporating `Glucose:DPF` into the model, we observe
-that there are only 2 outliers close to 95% error boundry. 
+that there are only 2 outliers close to 95% error boundary. 
 This is a reasonably
 good model.
 
-
-```{r}
+::: {.fullwidth}
+```{r fig.width=6, fig.height=4}
 fit.9 <- glm(Outcome ~ Glucose + log(BMI) + Pregnancies +
                DPF + Age + Glucose:DPF,
-             diabetes %>% filter(BMI != 0), family = binomial(link="logit"))
+             diabetes %>% filter(BMI != 0), 
+             family = binomial(link="logit"))
 arm::binnedplot(fitted(fit.9), 
                 residuals(fit.9, type = "response"),
-                main = 'Binned residual plot')
+                main = 'Binned residuals of fitted values')
 ```
+:::
 
 # Results
 
@@ -641,33 +689,35 @@ arm::binnedplot(fitted(fit.9),
 In summary, our model is as follows:
 
 $$\small P(y_i = 1) = logit^{−1}(X_iβ)$$
-where, $$\small Xβ = -10.357 + 0.045(Glucose) + 0.082(BMI) + 0.125(Pregnancies) + 3.966(DPF) + 0.011(Age) + -0.024(Glucose:DPF)$$ 
+where, $$\small Xβ = -10.357 + 0.045(Glucose) + 0.082(BMI) + 0.125(Pregnancies) +$$
+$$\small  3.966(DPF) + 0.011(Age) + -0.024(Glucose:DPF)$$ 
 
-The sign of the coefficent of `Glucose:DPF` is negative. We can
+The sign of the coefficient of `Glucose:DPF` is negative. We can
 interpret the interaction between `Glucose` and `DPF` in two ways:
 
--  For every additional 10% (0.1) increase of hereditory proclivity to 
+-  For every additional 10% (0.1) increase of hereditary proclivity to 
 diabetes (`DPF`),
 a value of 0.0024 (0.1x0.024) is subtracted from the coefficient 
 of `Glucose`. Subtracting
 0.0024 from 0.045 results in 5.3% (0.0024/0.045) reduction in the 
 effect on `Glucose` in
 predicting the onset of diabetes. Effect of blood glucose wane as
-hereditory effects become
+hereditary effects become
 more prominent. This is intuitive and consistent.
 
 - For every additional 10 mg/dL increase in blood glucose, a value
 of 0.24 is subtracted from the coefficient of `DPF`. This 
 is consistent with the observation that as blood glucose
 level increases (due to poor eating habits, for instance)
-then hereditory plays less of a role in determining
+then hereditary plays less of a role in determining
 the onset of diabetes.
 
-Interpretation of other coefficents is already covered in previous
+Interpretation of other coefficients is already covered in previous
 sections.
 
 Summary of the model is as follows:
 
+::: {.fullwidth}
 ```{r warning=F}
 formula <- Outcome ~ Glucose + BMI + Pregnancies + 
                DPF + Age + DPF:Glucose
@@ -675,7 +725,7 @@ fit.f <- glm(formula, diabetes, family = binomial(link="logit"))
 stargazer::stargazer(fit.f, type = 'text', single.row = TRUE,
                      dep.var.caption = "")
 ```
-
+:::
 
 ## Error rate and comparison to the null model
 
@@ -689,20 +739,23 @@ for null model).
 
 Accuracy of our model is 77.6%.
 
+::: {.fullwidth}
 ```{r}
 # Our model
 error_rate <- function(predicted, reference, threshold = 0.5) {
   round(sum((predicted >= threshold & reference == 0) |
-      (predicted < threshold & reference == 1)) /
-  length(reference) * 100, digits = 2)
+              (predicted < threshold & reference == 1)) /
+          length(reference) * 100, digits = 2)
 }
 error_rate(fitted(fit.f), diabetes$Outcome)
 ```
 ```{r}
 # Null model
-round(min(sum(diabetes$Outcome == 1), sum(diabetes$Outcome == 0)) /
-  length(diabetes$Outcome) * 100, digits = 2)
+round(min(sum(diabetes$Outcome == 1), 
+          sum(diabetes$Outcome == 0)) /
+        length(diabetes$Outcome) * 100, digits = 2)
 ```
+:::
 
 ## ROC curve
 
@@ -716,21 +769,58 @@ area has a specific value is a common practice^[*Statistical Methods in
 Diagnostic Medicine*, Second Edition, Ch.4,
 Author(s): Xiao‐Hua Zhou Nancy A. Obuchowski Donna K. McClish]. 
 
-Our model has AUC of 83.5%. This is a reasonable good value.
-At the cut-off point of 0.5 for fitted values,
+Our model has AUC of 83.5%. This is a reasonably good value.
+
+::: {.fullwidth}
+```{r message=F, fig.width=6, fig.height=4}
+plot(pROC::roc(diabetes$Outcome, fitted(fit.f)), col = "#0042A0", 
+               print.thres = c(0.5, 0.34), print.auc = T)
+```
+:::
+
+## Sensitivity and Specificity
+
+Sensitivity measures the proportion of correct forecast
+of presence of diabetes (true positive rate) w.r.t. to all positive
+diagnosis, while specificity measures
+the proportion of correct forecast of absence of diabetes (true negative rate)
+w.r.t. all negative diagnosis.
+
+At the cut-off point of 0.5 for fitted values (refer to ROC curve above),
 the sensitivity is 88% and specificity is 58.2%. By adjusting
 the cut-off point for positive diagnosis to 0.34, a sensitivity 
 of 76% and specificity of 74% can be achieved.
 
-```{r message=F}
-plot(pROC::roc(diabetes$Outcome, fitted(fit.f)), col = "#0042A0", 
-               print.thres = c(0.5, 0.34), print.auc = T)
-```
 
+## Comparison with Smith et al.
 
+Smith et al. describe their methodology as follows:
 
-## Comparison with Smith et. al.
+> "Once the algorithm had been trained using 576 cases, ADAP was used to forecast whether another 192 test cases would develop diabetes within five years. Forcing ADAP to conclude on all test cases produced a sensitivity and specificity of 76 percent. A receiver operating characteristic (ROC) curve was determined."
 
+In order to make a direct comparison with Smith et al., data is 
+split into two groups: a 
+training set with sample size of 576 and a test set with the remaining 
+192 observations. Model is trained using training set (new coefficients of 
+logistic regression are calculated) and forecasting performance
+of the trained model on the test set is assessed in terms of error rate,
+sensitivity and specificity. This procedure is repeated 100 times
+and summary statistics are presented for error rate, sensitivity
+and specificity.
+
+Smith et al. report sensitivity, specificity, and ROC curve when ADAP
+was applied on all test cases. Logistic model's sensitivity, specificity, 
+and ROC curve, when regressed on all
+test cases, has already been presented in the earlier sections. Smith et al.
+did not report the error rate of their learning algorithm.
+
+The forecasting evaluation procedure is presented below:
+
+_Define helper functions_
+
+Define a function to split data randomly into training set 
+of 576 observations and
+data set of remaining 192 observations.
 
 ```{r}
 # Split data (randomly) into training and test data sets.
@@ -746,6 +836,10 @@ split_data <- function(sample_size = 576) {
 }
 ```
 
+Define a prediction function. Using training set, calculate the 
+coefficients of the regressors. Use
+the trained model on the test data to predict the outcome of
+diabetes diagnosis.
 
 ```{r}
 # Fit the model on the training data, validate on
@@ -760,12 +854,17 @@ predict_diabetes <- function(training_data, test_data) {
 }
 ```
 
+_Error rate_
 
-Error rate:
+Compare the 
+predicted outcome to data (truth) 
+and report error rate. The procedure is repeated 100 times to reveal
+the distribution characteristics.
 
+::: {.fullwidth}
 ```{r}
-validate_error_rate <- function(threshold, iterations = 100) {
-  return(c(1:iterations) %>% 
+validate_error_rate <- function(threshold) {
+  return(c(1:100) %>% 
            map_dbl(~ {
              splitted <- split_data()
              predicted <- predict_diabetes(splitted$training, 
@@ -774,65 +873,78 @@ validate_error_rate <- function(threshold, iterations = 100) {
                         threshold = threshold)
            }))
 }
-er <- validate_error_rate(threshold = 0.5)
-er <- validate_error_rate(threshold = 0.36)
-summary(er)
+result <- validate_error_rate(threshold = 0.5)
+summary(result)
+```
+:::
+
+At predictor threshold of 0.5 for positive values, the average
+error rate is `r str_c(round(summary(result)[[4]], digits = 1), '%')`. 
+
+Predictor performance depends on the threshold for deciding positive 
+diagnosis. A threshold of 0.35 (instead of 0.5) improves specificity at
+the expense of sensitivity. Average error rate is also slightly higher.
+
+```{r}
+summary(validate_error_rate(threshold = 0.35))
 ```
 
+_Sensitivity_
 
+Sensitivity is the ability of the model to correctly
+forecast diabetes (true positive rate). As before, learning procedure
+is repeated 100 times and sensitivity is calculated for each iteration.
+
+::: {.fullwidth}
 ```{r}
 sensitivity <- c(1:100) %>% 
-           map_dbl(~ {
-             splitted <- split_data() 
-             predicted <- predict_diabetes(splitted$training, 
-                                           splitted$test)
-             caret::sensitivity(
-               factor(if_else(predicted >= 0.36, 1, 0)), 
-               factor(splitted$test$Outcome))
-           })
+  map_dbl(~ {
+    splitted <- split_data() 
+    predicted <- predict_diabetes(splitted$training, 
+                                  splitted$test)
+    caret::sensitivity(
+      factor(if_else(predicted >= 0.35, 1, 0)), 
+      factor(splitted$test$Outcome))
+  })
 summary(sensitivity)
 ```
+:::
 
+At 0.35 threshold for deciding positive diagnosis we obtain average 
+sensitivity of `r str_c(round(summary(sensitivity * 100)[[4]], digits = 1), '%')`.
 
+ _Specificity_
+ 
+Specificity is the ability of the model to correctly
+forecast absence of diabetes after 5 years (true negative rate). 
+Learning procedure
+is repeated 100 times and specificity is calculated for each iteration.
+
+::: {.fullwidth}
 ```{r}
 specificity <- c(1:100) %>% 
-           map_dbl(~ {
-             splitted <- split_data() 
-             predicted <- predict_diabetes(splitted$training, 
-                                           splitted$test)
-             caret::specificity(
-               factor(if_else(predicted >= 0.36, 1, 0)), 
-               factor(splitted$test$Outcome))
-           })
+  map_dbl(~ {
+    splitted <- split_data() 
+    predicted <- predict_diabetes(splitted$training, 
+                                  splitted$test)
+    caret::specificity(
+      factor(if_else(predicted >= 0.35, 1, 0)), 
+      factor(splitted$test$Outcome))
+  })
 summary(specificity)
 ```
+:::
+
+At 0.35 threshold for deciding positive diagnosis we obtain average 
+sensitivity of `r str_c(round(summary(specificity * 100)[[4]], digits = 1), '%')`.
+
+## Conclusion
 
 
-The precision is percentage of predicted truly relevant results of the total number of predicted relevant results
+# Appendix
 
-# Appendix A
+The R markdown file, _Report.Rmd_, used for generating this report 
+can be found at [github](https://github.com/girishji/Pima).
 
-# Appendix B
-
-
-```{r}
-# fit.7 <- glm(Outcome ~ Glucose + BMI + Pregnancies + 
-#                DPF + Age,
-#              diabetes, family = binomial(link="logit"))
-# add1(fit.7, ~ .^2, test = "Chisq")
-# 
-# lrtest() for each addition, and summary()
-```
-
-
-
-URL embedded in Rmd
-
-
-see if marginal effect makes sense, at means
-predicted probability, at means
-
-betas of (mean - val) vs val
-
-best fit, best practices, even though predictability is independednt.
-
+Url for the data set is embedded in the markdown file. No
+additional resources are necessary to generate the report.
