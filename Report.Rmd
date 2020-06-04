@@ -1,14 +1,14 @@
 ---
 title: "A Logistic Regression Equation to Predict the Onset of Diabetes in Pima Indian Women"
-subtitle: "Development and Comparison"
+subtitle: "Development, Validation, and Comparison"
 author: "Girish Palya (425998) and Karina Norvoish ()"
 date: "`r Sys.Date()`"
 output:
   tufte::tufte_html: default
-  tufte::tufte_handout:
+  tufte::tufte_book:
     citation_package: natbib
     latex_engine: xelatex
-  tufte::tufte_book:
+  tufte::tufte_handout:
     citation_package: natbib
     latex_engine: xelatex
 bibliography: skeleton.bib
@@ -19,7 +19,7 @@ link-citations: yes
 library(tufte)
 library(tidyverse)
 library(knitr)
-library(kableExtra)
+#library(kableExtra)
 # invalidate cache when the tufte version changes
 knitr::opts_chunk$set(tidy = FALSE, cache.extra = packageVersion('tufte'))
 options(htmltools.dir.version = FALSE)
@@ -115,8 +115,8 @@ in a logistic regression model whose performance will be
 on par with more sophisticated techniques.
 
 ---
-$\\$
-$\\$
+
+<br>        
 
 `r newthought('Diabetes mellitus')` afflicts 
 nearly 9% of world population (463 million) and causes 4 million 
@@ -194,7 +194,7 @@ cousins.]: Diabetes Pedigree Function
 `r margin_note("* JW Smith, JE Everhart, WC Dicksont, WC Knowler, RS Johannes. 1988. *Using the ADAP Learning Algorithm to Forecast the Onset of Diabetes Mellitus*")`
 8. `Age`: Age (years)
 
-The binary dependent variable (`Outcome`) describes 
+The binary dependent variable (`Diagnosis`) describes 
 the onset of non-insulin-dependent diabetes
 mellitus (DM) within a five-year period. This variable is 1 if diagnosis 
 is positive within five years, and 0 otherwise.
@@ -209,7 +209,7 @@ We assume these to be errors in data, and suitable remedies
 will be employed to address the skew.
 
 - There are 500 negative instances (65.1%)
-of the regressand (`Outcome`), compared to 258 positive instances (34.9%).
+of the regressand (`Diagnosis`), compared to 258 positive instances (34.9%).
 Even though we only present logit model in this study, using probit
 model will likely not produce a different result since the CDFs 
 underlying binomial logit and probit
@@ -221,20 +221,21 @@ towards younger subjects. `Pregnancies` are also skewed towards
 subjects having fewer pregnancies.
 `BMI`, `Insulin`, and `SkinThickness` have long tails on the right side.
 
-```{r echo=F}
+`r margin_note('Zero values in some variables indicate errors in data.')`
+
+```{r echo=T}
 diabetes %>%
   summarise_each(~ sum(.x == 0)) %>%
   pivot_longer(everything(), names_to = 'Variable',
                values_to = 'Count of Zero Values') %>%
-  kable(caption = 'Zero values in some variables indicate errors in data.') %>% 
-  kable_styling(full_width = F)
+  knitr::kable()
 ```
 
 $\\$
 
 ```{r fig.cap = "Box plot showing spurious outliers in `Insulin` and `SkinThickness`, and skewed mean (red dot).", cache=TRUE, echo = F}
 diabetes %>% 
-  select(-Outcome) %>% 
+  select_at(vars(!Diagnosis)) %>% 
   pivot_longer(everything(), names_to = 'Variable', 
                values_to = 'Value') %>% 
   ggplot(aes(x = Variable, y = Value, fill = Variable)) +
@@ -249,7 +250,7 @@ diabetes %>%
 
 ```{r fig.cap = "Density plot of regressors (without spurious zero values).", cache=TRUE, echo=F, fig.height=3}
 diabetes %>% 
-  select(-Outcome) %>% 
+  select_at(vars(!Diagnosis)) %>% 
   pivot_longer(everything(), names_to='Regressor', 
                values_to='Value') %>% 
   # Filter out spurious zeroes
@@ -266,10 +267,10 @@ diabetes %>%
 
 
 
-```{r fig.cap = "Correlation among regressors.", cache=TRUE, fig.margin = TRUE, echo = F}
+```{r warning=F, message=F, fig.cap = "Correlation among regressors.", cache=TRUE, fig.margin = TRUE, echo = F}
 diabetes %>% 
   rename(Pregnan. = 1, BloodPr. = 3, SkinThick. = 4) %>% 
-  ggcorr(method = c("everything", "pearson"))
+  GGally::ggcorr(method = c("everything", "pearson"))
 ```
 
 `r newthought('Scatter plots and correlation matrix')` reveal the following:
@@ -287,10 +288,10 @@ diabetes %>%
 - None of the explanatory variables are correlated with
 the response variable in a dominating way.
 
-```{r fig.cap = "Correlation matrix of regressors.", cache=TRUE, echo=FALSE}
+```{r warning=F, message=F, fig.cap = "Correlation matrix of regressors.", cache=TRUE, echo=FALSE}
 diabetes %>% 
-  ggpairs(., lower = list(continuous = 
-                            wrap("points", alpha = 0.3, 
+  GGally::ggpairs(., lower = list(continuous = 
+                            GGally::wrap("points", alpha = 0.3, 
                                  size = 0.1)))
 ```
 
@@ -322,7 +323,7 @@ put in other variables.
 
 ::: {.fullwidth}
 ```{r}
-fit.1 <- glm(Outcome ~ Glucose, diabetes,
+fit.1 <- glm(Diagnosis ~ Glucose, diabetes,
              family = binomial(link = "logit")) 
 display(fit.1)
 ```
@@ -334,10 +335,10 @@ value for `Glucose` is 120 mg/dL. Multiplicative effect is still significant.
 ## Graphing the fitted model
 
 ::: {.fullwidth}
-```{r warning=F, message=F, fig.width = 5, fig.height = 3}
+```{r warning=F, message=F,fig.width = 5, fig.height = 3}
 diabetes %>% mutate(Predicted = fitted(fit.1)) %>% 
   filter(Glucose != 0) %>% 
-  ggplot(aes(Glucose, Outcome)) + geom_point() +
+  ggplot(aes(Glucose, Diagnosis)) + geom_point() +
   stat_smooth(aes(Glucose, Predicted), se = F) +
   ylab('Probability of diabetes')
 ```
@@ -351,7 +352,7 @@ plotx <- function(.data) {
     plt <- plt %>% mutate(!!sym(str_c('s_', j)) := 
                             arm::invlogit(sim.1@coef[j,1] + sim.1@coef[j,2] * Glucose))
   }
-  plt <- plt %>% ggplot(aes(Glucose, Outcome)) + geom_point() 
+  plt <- plt %>% ggplot(aes(Glucose, Diagnosis)) + geom_point() 
   for (j in 1:10) {
     plt <- plt + stat_smooth(aes(Glucose, !!sym(str_c('s_', j))), se = F, color = "gray")
   }
@@ -391,7 +392,7 @@ which is clearly statistically (significantly) different from zero.
 
 ::: {.fullwidth}
 ```{r}
-fit.2 <- glm(Outcome ~ Glucose + BMI, diabetes,
+fit.2 <- glm(Diagnosis ~ Glucose + BMI, diabetes,
              family = binomial(link="logit"))
 display(fit.2)
 ```
@@ -430,7 +431,7 @@ in the correlation matrix.
 
 ::: {.fullwidth}
 ```{r}
-fit.3 <- glm(Outcome ~ Glucose + BMI + Pregnancies, diabetes,
+fit.3 <- glm(Diagnosis ~ Glucose + BMI + Pregnancies, diabetes,
              family = binomial(link="logit"))
 display(fit.3)
 ```
@@ -445,7 +446,7 @@ genetic per se, DNA may influence the risk of developing it. This type of
 diabetes tends to run in families.
 
 ```{r}
-fit.4 <- glm(Outcome ~ Glucose + BMI + Pregnancies + DPF, 
+fit.4 <- glm(Diagnosis ~ Glucose + BMI + Pregnancies + DPF, 
              diabetes, family = binomial(link="logit"))
 display(fit.4)
 ```
@@ -459,7 +460,7 @@ check that assumption.
 
 ::: {.fullwidth}
 ```{r}
-fit.5 <- glm(Outcome ~ Glucose + BMI + Pregnancies + 
+fit.5 <- glm(Diagnosis ~ Glucose + BMI + Pregnancies + 
                DPF + Age, 
              diabetes, family = binomial(link="logit"))
 display(fit.5)
@@ -476,7 +477,7 @@ and check if it is significant.
 
 ::: {.fullwidth}
 ```{r}
-fit.5 <- glm(Outcome ~ Glucose + BMI + Pregnancies + 
+fit.5 <- glm(Diagnosis ~ Glucose + BMI + Pregnancies + 
                DPF + Age + BloodPressure, 
              diabetes, family = binomial(link="logit"))
 display(fit.5)
@@ -500,7 +501,7 @@ in their columns.
 
 ::: {.fullwidth}
 ```{r}
-fit.6 <- glm(Outcome ~ Glucose + BMI + Pregnancies + 
+fit.6 <- glm(Diagnosis ~ Glucose + BMI + Pregnancies + 
                DPF + Age + SkinThickness + Insulin,
              diabetes, family = binomial(link="logit"))
 display(fit.6)
@@ -523,7 +524,7 @@ Our model so far is as follows:
 
 ::: {.fullwidth}
 ```{r warning=F}
-fit.7 <- glm(Outcome ~ Glucose + BMI + Pregnancies +
+fit.7 <- glm(Diagnosis ~ Glucose + BMI + Pregnancies +
                DPF + Age,
              diabetes, family = binomial(link="logit"))
 stargazer::stargazer(fit.7, type = 'text', single.row = TRUE,
@@ -627,7 +628,7 @@ to apply log transformation on `BMI`.
 
 ::: {.fullwidth}
 ```{r fig.width=5, fig.height=4}
-fit.8 <- glm(Outcome ~ Glucose + log(BMI) + Pregnancies +
+fit.8 <- glm(Diagnosis ~ Glucose + log(BMI) + Pregnancies +
                DPF + Age,
              diabetes %>% filter(BMI != 0), 
              family = binomial(link="logit"))
@@ -645,7 +646,7 @@ before we have 4 candidates for inclusion, namely, `Pregnancies:Age`,
 
 ::: {.fullwidth}
 ```{r}
-base <- "Outcome ~ Glucose + BMI + Pregnancies + DPF + Age + "
+base <- "Diagnosis ~ Glucose + BMI + Pregnancies + DPF + Age + "
 par(mfrow = c(2, 2))
 for (inter in c('Pregnancies:Age', 'Glucose:DPF', 
                       'Glucose:Age', 'BMI:Pregnancies')) {
@@ -672,7 +673,7 @@ good model.
 
 ::: {.fullwidth}
 ```{r fig.width=6, fig.height=4}
-fit.9 <- glm(Outcome ~ Glucose + log(BMI) + Pregnancies +
+fit.9 <- glm(Diagnosis ~ Glucose + log(BMI) + Pregnancies +
                DPF + Age + Glucose:DPF,
              diabetes %>% filter(BMI != 0), 
              family = binomial(link="logit"))
@@ -719,7 +720,7 @@ Summary of the model is as follows:
 
 ::: {.fullwidth}
 ```{r warning=F}
-formula <- Outcome ~ Glucose + BMI + Pregnancies + 
+formula <- Diagnosis ~ Glucose + BMI + Pregnancies + 
                DPF + Age + DPF:Glucose
 fit.f <- glm(formula, diabetes, family = binomial(link="logit"))
 stargazer::stargazer(fit.f, type = 'text', single.row = TRUE,
@@ -747,13 +748,13 @@ error_rate <- function(predicted, reference, threshold = 0.5) {
               (predicted < threshold & reference == 1)) /
           length(reference) * 100, digits = 2)
 }
-error_rate(fitted(fit.f), diabetes$Outcome)
+error_rate(fitted(fit.f), diabetes$Diagnosis)
 ```
 ```{r}
 # Null model
-round(min(sum(diabetes$Outcome == 1), 
-          sum(diabetes$Outcome == 0)) /
-        length(diabetes$Outcome) * 100, digits = 2)
+round(min(sum(diabetes$Diagnosis == 1), 
+          sum(diabetes$Diagnosis == 0)) /
+        length(diabetes$Diagnosis) * 100, digits = 2)
 ```
 :::
 
@@ -773,8 +774,9 @@ Our model has AUC of 83.5%. This is a reasonably good value.
 
 ::: {.fullwidth}
 ```{r message=F, fig.width=6, fig.height=4}
-plot(pROC::roc(diabetes$Outcome, fitted(fit.f)), col = "#0042A0", 
-               print.thres = c(0.5, 0.34), print.auc = T)
+plot(pROC::roc(diabetes$Diagnosis, fitted(fit.f)), 
+     col = "#0042A0", 
+     print.thres = c(0.5, 0.34), print.auc = T)
 ```
 :::
 
@@ -845,7 +847,7 @@ diabetes diagnosis.
 # Fit the model on the training data, validate on
 #   test data, and return predicted results.
 predict_diabetes <- function(training_data, test_data) {
-  formula <- Outcome ~ Glucose + BMI + Pregnancies +
+  formula <- Diagnosis ~ Glucose + BMI + Pregnancies +
     DPF + Age + DPF:Glucose
   fit.model <- glm(formula, training_data,
                    family = binomial(link = "logit"))
@@ -869,7 +871,7 @@ validate_error_rate <- function(threshold) {
              splitted <- split_data()
              predicted <- predict_diabetes(splitted$training, 
                                            splitted$test)
-             error_rate(predicted, splitted$test$Outcome, 
+             error_rate(predicted, splitted$test$Diagnosis, 
                         threshold = threshold)
            }))
 }
@@ -904,7 +906,7 @@ sensitivity <- c(1:100) %>%
                                   splitted$test)
     caret::sensitivity(
       factor(if_else(predicted >= 0.35, 1, 0)), 
-      factor(splitted$test$Outcome))
+      factor(splitted$test$Diagnosis))
   })
 summary(sensitivity)
 ```
@@ -929,7 +931,7 @@ specificity <- c(1:100) %>%
                                   splitted$test)
     caret::specificity(
       factor(if_else(predicted >= 0.35, 1, 0)), 
-      factor(splitted$test$Outcome))
+      factor(splitted$test$Diagnosis))
   })
 summary(specificity)
 ```
