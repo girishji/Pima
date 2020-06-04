@@ -93,13 +93,13 @@ was compared against the results obtained by Smith et al.
 The predictive equation was calculated using logistic regression
 parameters as follows: $P(diagnosis = 1) = 1/(1 - e^{-x})$, where
 _x_ = -10.357 + 0.045(*blood glucose in mg/dL*) + 0.082(*BMI in kg/in*) 
-+ 0.125(*pregnancy count*) + 3.966(*hereditary factor in the range [0, 1]*) + 
++ 0.125(*pregnancy count*) + 3.966(*hereditary factor*) + 
 0.011(*age in years*) - 
-0.024(*blood glucose X hereditary factor*).
-At 0.5 threshold for fitted values, equation's sensitivity was 88%, 
-specificity was 58%, and accuracy was 78%. 
-At 0.34 cut point for positive diagnosis, equation's sensitivity was 76%, 
-specificity was 74%, and error rate was 22%. The area under
+0.024(*blood glucose : hereditary factor*).
+At a threshold of 0.5 for positive diagnosis, equation's sensitivity was 88%, 
+specificity was 58%, and error rate was 22%. 
+At 0.34 cut-off point for positive diagnosis, equation's sensitivity was 76% and 
+specificity was 74% while maintaining the same error rate. The area under
 ROC curve was 84%. In contrast, Smith et al. report sensitivity and 
 specificity
 of 76%. They did not report error rate or the area under ROC curve, 
@@ -298,9 +298,9 @@ diabetes %>%
 
 # Model
 
-`r newthought('Logistic regression')` is the standard way to model binary outcomes. We model the probability that $DiabetesDiagnosis = 1$,
-$$P(DiabetesDiagnosis_i = 1) = logit^{−1}(X_iβ),$$
-under the assumption that the outcomes $DiabetesDiagnosis_i$ are independent given these probabilities.
+`r newthought('Logistic regression')` is the standard way to model binary outcomes. We model the probability that $Diagnosis = 1$,
+$$P(Diagnosis_i = 1) = logit^{−1}(X_iβ),$$
+under the assumption that the outcomes $Diagnosis_i$ are independent given these probabilities.
 We refer to $Xβ$ as the linear predictor. The function $logit^{-1}(x) = \frac{e^x}{1+e^x}$ transforms 
 the continuous values to the range (0, 1), which is necessary since probabilities must be between 0 and 1.
 
@@ -938,8 +938,23 @@ summary(specificity)
 At 0.35 threshold for deciding positive diagnosis we obtain average 
 sensitivity of `r str_c(round(summary(specificity * 100)[[4]], digits = 1), '%')`.
 
-## Conclusion
+## Conclusions
 
+The performance of the model depends on the cut off point used
+to define a positive diagnosis. At 0.5 there are less false
+positives but more false negatives. At 0.35 false positives roughly
+equal false negatives. Less false positives may be preferable
+to less false negatives, since false positive results can harm
+the subject emotionally or financially. 
+
+Blood glucose level has a significant influence in the diagnosis
+of diabetes. However, incorporating other relevant risk factors
+and their interaction improves the predictive power of the model.
+
+Although logistic regression compares favorably with other
+techniques, such as the one used by Smith et al., limitations
+of data and inaccuracies present in observations prevent
+the model from realizing its full potential.
 
 # Appendix
 

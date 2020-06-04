@@ -10,6 +10,7 @@ diabetes <- read.csv("https://raw.githubusercontent.com/girishji/Pima/master/dat
 diabetes <- as_tibble(d)
 diabetes
 ```
+`r margin_note('A subset of data.')`
 
 But in practical data analysis it is usually easiest to start with a simple model and then build in additional complexity, taking care to check for problems along the way. 
 There are typically many reasonable ways in which a model can be constructed. Models may differ depending on the inferential goals or the way the data were collected. Key choices include how the input variables should be combined in cre- ating predictors, and which predictors should be included in the model. In classical regression, these are huge issues, because if you include too many predictors in a model, the parameter estimates become so variable as to be useless. 
@@ -37,7 +38,8 @@ Functions to accompany A. Gelman and J. Hill, Data Analysis Using Regression and
 ```{r}
 library(arm)
 fit.1 <- glm (Outcome ~ Glucose, diabetes, family = binomial(link = "logit")) 
-display(fit.1, digits = 4, detail = F)
+fit.1$call
+x <- arm::display(fit.1, digits = 4, detail = F)
 #summary(fit.1)
 #glm (Outcome ~ Glucose, diabetes, family = binomial(link = "logit"))
 ```
@@ -56,6 +58,7 @@ predict(fit.1) # before invlogit is applied, -ve values
 #   labs(y = "Pr(diabetes)", title = "Diabetes ~ ped varying by glu_bin")
 ```
 
+Zero values in some variables indicate errors in data.
 
 ```{r}
 sim.1 <- sim(fit.1)
@@ -682,5 +685,9 @@ AUC is the summary of how the model does at every decision threshold. In general
 2) spell check
 
 
+> "ADAP was developed by two of the authors [Smith, Dickson] in 1961. We chose to examine the ADAP algorithm and test its use in forecasting the onset of non-insulin-dependent diabetes mellitus (DM) within a five-year period. The data used in this study were from the Pima Indian population near Phoenix, Arizona. Once the algorithm had been trained using 576 cases, ADAP was used to forecast whether another 192 test cases would develop diabetes within five years. Forcing ADAP to conclude on all test cases produced a sensitivity and specificity of 76 percent."
+
+
+::: {.fullwidth}
 `r newthought('
                                       
