@@ -330,7 +330,7 @@ for problems along the way.
 `r newthought('Glucose level in blood ')` is known to be a strong predictor of onset of diabetes, and the correlation
 matrix reflects this relationship. 
 
-Fitting the model using just `Glucose`:
+Fitting the model using just `Glucose`:^[display() is a [modification](https://github.com/girishji/Pima/blob/master/Report.Rmd) of arm::display() to remove the echo of formula.]
 
 ```{r}
 fit.1 <- glm(Diagnosis ~ Glucose, diabetes,
