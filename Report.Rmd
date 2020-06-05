@@ -728,6 +728,8 @@ each of these interactions one at a time:
 
 ::: {.fullwidth}
 ```{r}
+#graphics.off()
+#par(mar=c(1,1,1,1))
 base <- "Diagnosis ~ Glucose + log(BMI) + Pregnancies + DPF + Age + "
 par(mfrow = c(2, 2))
 for (inter in c('Pregnancies:Age', 'Glucose:DPF', 
