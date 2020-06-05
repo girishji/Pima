@@ -4,11 +4,11 @@ subtitle: "Development, Validation, and Comparison"
 author: "Girish Palya (425998) and Karina Norvoish ()"
 date: "`r Sys.Date()`"
 output:
-  tufte::tufte_html: default
-  tufte::tufte_book:
+  tufte::tufte_handout:
     citation_package: natbib
     latex_engine: xelatex
-  tufte::tufte_handout:
+  tufte::tufte_html: default
+  tufte::tufte_book:
     citation_package: natbib
     latex_engine: xelatex
 bibliography: skeleton.bib
@@ -703,7 +703,7 @@ before we have 4 candidates for inclusion, namely, `Pregnancies:Age`,
 ::: {.fullwidth}
 ```{r}
 base <- "Diagnosis ~ Glucose + log(BMI) + Pregnancies + DPF + Age + "
-par(mfrow = c(2, 2))
+par(mar = c(1, 1, 1, 1), mfrow = c(2, 2))
 for (inter in c('Pregnancies:Age', 'Glucose:DPF', 
                 'Glucose:Age', 'BMI:Pregnancies')) {
   fit.temp <- glm(str_c(base, inter),
@@ -1035,7 +1035,7 @@ the model from realizing its full potential.
 # Appendix
 
 The R markdown file, _Report.Rmd_, used for generating this report 
-can be found at [github](https://github.com/girishji/Pima).
+can be found on [github](https://github.com/girishji/Pima).
 
 Url for the data set is embedded in the markdown file. No
 additional resources are necessary to generate the report.
