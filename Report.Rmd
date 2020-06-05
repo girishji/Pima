@@ -1,7 +1,7 @@
 ---
 title: "A Logistic Regression Equation to Predict the Onset of Diabetes in Pima Indian Women"
 subtitle: "Development, Validation, and Comparison"
-author: "Girish Palya (425998) and Karina Norvoish ()"
+author: "Girish Palya (425998) and Karina Norvoish (409636)"
 date: "`r Sys.Date()`"
 output:
   tufte::tufte_html: default
@@ -24,7 +24,6 @@ library(knitr)
 knitr::opts_chunk$set(tidy = FALSE, cache.extra = packageVersion('tufte'))
 options(htmltools.dir.version = FALSE)
 
-library(arm)
 display <- function(object, digits=4, detail=FALSE) {
   out <- NULL
   #out$call <- object$call
@@ -43,24 +42,24 @@ display <- function(object, digits=4, detail=FALSE) {
   out$coef <- coef[,"coef.est"]
   out$se <- coef[,"coef.se"]
   #print(out$call)
-  pfround(coef, digits)
+  arm::pfround(coef, digits)
   out$deviance <- summ$deviance
   out$null.deviance <- summ$null.deviance
   cat("---\n")
   cat(paste("  n = ", out$n, ", k = ", out$k, "\n  residual deviance = ",
-            fround(out$deviance, 1), ", null deviance = ", fround(out$null.deviance, 1), 
-            "\n  (difference = ", fround(summ$null.deviance - summ$deviance, 1), ")", "\n", sep = ""))
+            arm::fround(out$deviance, 1), ", null deviance = ", arm::fround(out$null.deviance, 1), 
+            "\n  (difference = ", arm::fround(summ$null.deviance - summ$deviance, 1), ")", "\n", sep = ""))
   out$dispersion <- if (is.null(object$dispersion)){
     summ$dispersion
   } else {
     object$dispersion
   }
   if (out$dispersion != 1) {
-    cat(paste("  overdispersion parameter = ", fround(out$dispersion, 1), "\n", sep = ""))
+    cat(paste("  overdispersion parameter = ", arm::fround(out$dispersion, 1), "\n", sep = ""))
     if (family(object)$family=="gaussian") {
       out$sigma.hat <- sqrt(out$dispersion)
       cat(paste("  residual sd is sqrt(overdispersion) = ",
-                fround(out$sigma.hat, digits), "\n", sep = ""))
+                arm::fround(out$sigma.hat, digits), "\n", sep = ""))
     }
   }
   return(invisible(out))
@@ -554,6 +553,31 @@ stargazer::stargazer(fit.7, type = 'text', single.row = TRUE,
 ```
 :::
 
+In order to understand the contribution of each coefficient
+to the linear predictor, value of coefficient is multiplied by
+the mean value of the corresponding input variable.
+
+Mean values:
+
+```{r}
+mean_v <- diabetes %>% 
+  select(!one_of('Diagnosis', 'SkinThickness', 
+                 'Insulin', 'BloodPressure')) %>%
+  summarise_all(mean)
+mean_v %>% kable()
+```
+
+Multiplying coefficients by the respective mean value of input variable:
+
+```{r}
+mean_v %>% map2_df(names(.), ~ mean_v[[`.y`]] * 
+                     fit.7$coefficients[[`.y`]]) %>% 
+  kable()
+```
+
+This shows that `Glucose` has the highest effect on linear predictor,
+followed by `BMI`. Other variables only have a small contribution.
+
 ## Check for interactions
 
 `r newthought('A quick search of all possible two-factor interactions')` based
@@ -767,21 +791,26 @@ The sign of the coefficient of `Glucose:DPF` is negative. This
 interaction can be
 interpreted in two ways:
 
-- For every additional 10% (0.1) increase of hereditary proclivity to 
+- For every additional 0.5 increase of hereditary proclivity to 
 diabetes (`DPF`),
-a value of `r -0.1*round(fit.f$coefficients[[7]], digits=3)` is subtracted 
+a value of `r -0.5*round(fit.f$coefficients[[7]], digits=3)` is subtracted 
 from the coefficient 
-of `Glucose`. Subtracting from the (positive) coefficient of `Glucose`
-leads to reduction in the 
-effect on `Glucose` in
-predicting the onset of diabetes. 
-Effect of blood glucose wane as
+of `Glucose`. Mean value of `Glucose` is `r round(mean(diabetes$Glucose), 2)`.
+Multiplying this by the coefficient of `Glucose` yields 
+`r round(mean(diabetes$Glucose)*fit.f$coefficients[[2]],3)`.
+Additional 0.5 increase of `DPF` results in the
+coefficient of `Glucose` decreasing by a very small amount
+indeed (to `r 5.579-0.0125`). Inverse logit function will only cause a small
+change of predicted values to be flipped as a result
+of this interaction. Also,
+effect of blood glucose wane as
 hereditary effects become
 more prominent.
 
 - For every additional 10 mg/dl increase in blood glucose, a value
 of `r -10*round(fit.f$coefficients[[7]], digits=3)` is subtracted from 
-the coefficient of `DPF`. This 
+the coefficient of `DPF` at mean value (reduction from 
+`r round(mean(diabetes$DPF)*4.175, 3)` to `r round(mean(diabetes$DPF)*4.175, 3)-0.25`). This 
 is consistent with the observation that as blood glucose
 level increases (due to poor eating habits, for instance)
 hereditary plays less of a role in determining
@@ -789,9 +818,10 @@ the onset of diabetes.
 
 `BMI` has a multiplicative relationship with dependent variable
 `Diagnosis` owing to the log transformation. For every 10% increase in
-`BMI`, linear predictor increases by `r round(fit.f$coefficients[[3]],3)`x$\log(1.1)$=`r round(fit.f$coefficients[[3]] * log(1.1), 3)`. Inverse of logit
+`BMI`, linear predictor increases by `r round(fit.f$coefficients[[3]] * log(1.1), 3)`
+(`r round(fit.f$coefficients[[3]],3)`x$\log(1.1)$). Inverse of logit
 function has to be applied on the linear predictor to
-reveal the increase in shadow (dependent) variable.
+calculate the increase in shadow (dependent) variable.
 
 Interpretation of other coefficients is already covered in previous
 sections.

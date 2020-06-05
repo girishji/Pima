@@ -9,12 +9,20 @@ library('broom')
 diabetes <- read.csv("https://raw.githubusercontent.com/girishji/Pima/master/data/diabetes.csv")
 diabetes <- as_tibble(d)
 diabetes
+
 ```
 `r margin_note('A subset of data.')`
 
 graphics.off()
 par("mar")
 par(mar=c(1,1,1,1))
+
+```{r}
+fit.f$coefficients[[2]]
+fit.f$coefficients
+log(diabetes$BMI)
+120*.046
+```
 
 
 display descr
