@@ -17,6 +17,15 @@ par("mar")
 par(mar=c(1,1,1,1))
 
 
+display descr
+interactio smith
+
+
+diabetes %>% filter(BMI != 0)
+
+  #filter(Regressor == 'Pregnancies' | Value != 0) %>% 
+
+
 diabetes %>%
   summarise_each(~ sum(.x == 0)) %>%
   pivot_longer(everything(), names_to = 'Variable',
@@ -624,6 +633,40 @@ caret::confusionMatrix(factor(if_else(fitted(fit.f) > 0.34, 1, 0)),
                 factor(diabetes$Outcome))
 ```
 
+
+
+Since log tranformation cannot be applied on 0 values, 11
+valuable observations (in all 
+input variables) has to be discarded. To evaluate
+if this transormation is worthwhile, a comparison
+of confusion matrix is considered.
+
+Confusion matrix, so named because the matrix summarizes how the 
+model is confused, summarizes different types of model errors,
+such as false positives (Type 1 Error) and false 
+negatives (Type 2 Error).
+
+Applying log transformation makes false positives jump
+from 119 to 120, and
+false negatives reduce from 70 to 68.
+This is not a significant improvement. The option of
+applying log transformation 
+on `BMI` is therefore discarded.
+
+```{r}
+# With log(BMI)
+caret::confusionMatrix(
+  factor(if_else(fitted(fit.8) > 0.34, 1, 0)), 
+  factor(diabetes %>% filter(BMI != 0) %>% 
+           pull(Diagnosis)))$table
+```
+
+```{r}
+# Without any transformation on BMI
+caret::confusionMatrix(
+  factor(if_else(fitted(fit.7) > 0.34, 1, 0)), 
+  factor(diabetes %>% pull(Diagnosis)))$table
+```
 
 
 
