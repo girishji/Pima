@@ -4,10 +4,10 @@ subtitle: "Development, Validation, and Comparison"
 author: "Girish Palya (425998) and Karina Norvoish ()"
 date: "`r Sys.Date()`"
 output:
+  tufte::tufte_html: default
   tufte::tufte_handout:
     citation_package: natbib
     latex_engine: xelatex
-  tufte::tufte_html: default
   tufte::tufte_book:
     citation_package: natbib
     latex_engine: xelatex
@@ -624,7 +624,7 @@ arm::binnedplot(fitted(fit.7),
 
 ## Plotting binned residuals versus inputs of interest
 
-`r newthought('To understand the deviation better')`, residuals are binned and
+`r newthought('To understand the deviation better')`, residuals are binned 
 with respect to 
 individual input variables, and plotted. 
 
@@ -694,16 +694,18 @@ caret::confusionMatrix(
 ## Check for interactions (again)
 
 Combining inputs leads to increase or decrease in 
-the influence produced by individual inputs, depending
-on the sign of the coefficient of the combined variable. 
-From AIC analysis
-before we have 4 candidates for inclusion, namely, `Pregnancies:Age`,
+the influence produced by individual input, depending
+on the sign of the coefficient of the combined variable
+in relation to the sign of the input variable. 
+From AIC analysis we have 4 candidates for inclusion, namely, `Pregnancies:Age`,
 `Glucose:DPF`, `Glucose:Age`, and `BMI:Pregnancies`. 
+Plotting the binned residuals after including
+each of these interactions one at a time:
 
 ::: {.fullwidth}
 ```{r}
 base <- "Diagnosis ~ Glucose + log(BMI) + Pregnancies + DPF + Age + "
-par(mar = c(1, 1, 1, 1), mfrow = c(2, 2))
+par(mfrow = c(2, 2))
 for (inter in c('Pregnancies:Age', 'Glucose:DPF', 
                 'Glucose:Age', 'BMI:Pregnancies')) {
   fit.temp <- glm(str_c(base, inter),
@@ -761,16 +763,11 @@ stargazer::stargazer(fit.f, type = 'text', single.row = TRUE,
 ```
 :::
 
-```{r}
-fit.f$coefficients
-fit.f$coefficients[[3]]
-```
-
 The sign of the coefficient of `Glucose:DPF` is negative. This 
 interaction can be
 interpreted in two ways:
 
--  For every additional 10% (0.1) increase of hereditary proclivity to 
+- For every additional 10% (0.1) increase of hereditary proclivity to 
 diabetes (`DPF`),
 a value of `r -0.1*round(fit.f$coefficients[[7]], digits=3)` is subtracted 
 from the coefficient 
@@ -791,9 +788,10 @@ hereditary plays less of a role in determining
 the onset of diabetes.
 
 `BMI` has a multiplicative relationship with dependent variable
-`Diagnosis` owing to the log transformation. For every 10% increase
-`BMI`, linear predictor increases by `r round(fit.f$coefficients[[3]],3)`x$\log(1.1)$=`r round(fit.f$coefficients[[3]] * log(1.1), 3)`. An inverse logit
-function will reveal the increase in shadow (dependent) variable.
+`Diagnosis` owing to the log transformation. For every 10% increase in
+`BMI`, linear predictor increases by `r round(fit.f$coefficients[[3]],3)`x$\log(1.1)$=`r round(fit.f$coefficients[[3]] * log(1.1), 3)`. Inverse of logit
+function has to be applied on the linear predictor to
+reveal the increase in shadow (dependent) variable.
 
 Interpretation of other coefficients is already covered in previous
 sections.
@@ -1036,6 +1034,3 @@ the model from realizing its full potential.
 
 The R markdown file, _Report.Rmd_, used for generating this report 
 can be found on [github](https://github.com/girishji/Pima).
-
-Url for the data set is embedded in the markdown file. No
-additional resources are necessary to generate the report.
